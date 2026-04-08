@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Link, CheckCircle, ExternalLink, Copy, Check } from 'lucide-react';
-import { setApiUrl, getApiUrl } from '../api/gymApi';
+import { Settings, Link, CheckCircle } from 'lucide-react';
+import { getApiUrl } from '../api/gymApi';
 
 interface SetupProps {
   onComplete: () => void;
@@ -10,7 +10,6 @@ interface SetupProps {
 export default function Setup({ onComplete }: SetupProps) {
   const [apiUrl, setApiUrlState] = useState('');
   const [saved, setSaved] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const existingUrl = getApiUrl();
@@ -21,7 +20,7 @@ export default function Setup({ onComplete }: SetupProps) {
 
   const handleSave = () => {
     if (apiUrl.trim()) {
-      setApiUrl(apiUrl.trim());
+      localStorage.setItem('gymApiUrl', apiUrl.trim());
       setSaved(true);
       setTimeout(() => {
         onComplete();
@@ -29,11 +28,6 @@ export default function Setup({ onComplete }: SetupProps) {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
     <div className="h-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col">

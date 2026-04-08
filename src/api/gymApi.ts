@@ -1,6 +1,4 @@
-
 // Gym Membership API Client
-// Connects to Google Apps Script backend
 
 import type {
   Member,
@@ -11,16 +9,14 @@ import type {
   RenewalData
 } from '../types/member';
 
-// ✅ FIXED: Hardcoded correct Apps Script URL
-const DEFAULT_API_URL =
-  'https://script.google.com/macros/s/AKfycbx9Q1y8_ujKpg_VwnKPCGucQV2EZti2sOFnvkIv6Vndi1RL5CKKpplYGJbKzky1YUE7/exec';
-
-// API URL helper
 export function getApiUrl(): string {
-  return localStorage.getItem('gymApiUrl') || DEFAULT_API_URL;
+  return localStorage.getItem('gymApiUrl') || '';
 }
 
-// Admin password helpers
+export function setApiUrl(url: string): void {
+  localStorage.setItem('gymApiUrl', url);
+}
+
 export function getAdminPassword(): string {
   return sessionStorage.getItem('gymAdminPassword') || '';
 }
@@ -37,99 +33,139 @@ export function isAdminLoggedIn(): boolean {
   return !!sessionStorage.getItem('gymAdminPassword');
 }
 
-/* -------------------- PUBLIC API -------------------- */
+/* CORE FETCH HELPER */
 
-export async function lookupMember(
-  memberId: string
-): Promise<MemberLookupResponse> {
-  const url = `${getApiUrl()}?action=lookup&id=${encodeURIComponent(memberId)}`;
-  return (await fetch(url)).json();
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 20000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      redirect: 'follow'
+    });
+    return response;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+/* PUBLIC */
+
+export async function lookupMember(memberId: string): Promise<MemberLookupResponse> {
+  const baseUrl = getApiUrl();
+  if (!baseUrl) return { success: false, error: 'System Error: API URL not configured' };
+  const url = `${baseUrl}?action=lookup&id=${encodeURIComponent(memberId)}`;
+
+  try {
+    const response = await fetchWithTimeout(url);
+    if (!response.ok) throw new Error('Server error');
+    return await response.json();
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.name === 'AbortError' ? 'Request timed out' : 'Network error'
+    };
+  }
 }
 
 export async function getAllMembers(): Promise<MembersListResponse> {
+  const baseUrl = getApiUrl();
+  if (!baseUrl) return { success: false, error: 'System Error: API URL not configured' };
   const password = getAdminPassword();
-  const url = `${getApiUrl()}?action=getAll&password=${encodeURIComponent(password)}`;
-  return (await fetch(url)).json();
+  const url = `${baseUrl}?action=getAll&password=${encodeURIComponent(password)}`;
+
+  try {
+    const response = await fetchWithTimeout(url);
+    if (!response.ok) throw new Error('Server error');
+    return await response.json();
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.name === 'AbortError' ? 'Request timed out' : 'Network error'
+    };
+  }
 }
 
-/* -------------------- ADMIN CRUD -------------------- */
+/* ADMIN CRUD */
 
-export async function addMember(
-  memberData: NewMemberData
-): Promise<ApiResponse> {
-  console.log('ADD MEMBER CLICKED → sending to Apps Script', memberData);
-
-  return postAdminAction({
-    action: 'addMember',
-    member: memberData
+export async function addMember(memberData: NewMemberData): Promise<ApiResponse> {
+  return postAdminAction({ 
+    action: 'addMember', 
+    member: memberData 
   });
 }
 
 export async function updateMember(
   memberData: Partial<Member> & { id: string }
 ): Promise<ApiResponse> {
-  console.log('UPDATE MEMBER →', memberData);
-
-  return postAdminAction({
-    action: 'updateMember',
-    member: memberData
+  return postAdminAction({ 
+    action: 'updateMember', 
+    member: memberData 
   });
 }
 
-export async function renewMembership(
-  renewalData: RenewalData
-): Promise<ApiResponse> {
-  console.log('RENEW MEMBER →', renewalData);
-
-  return postAdminAction({
-    action: 'renewMember',
-    ...renewalData
+export async function renewMembership(renewalData: RenewalData): Promise<ApiResponse> {
+  return postAdminAction({ 
+    action: 'renewMember', 
+    memberId: renewalData.memberId,
+    membershipType: renewalData.membershipType,
+    startDate: renewalData.startDate
   });
 }
 
-export async function deleteMember(
-  memberId: string
-): Promise<ApiResponse> {
-  console.log('DELETE MEMBER →', memberId);
-
-  return postAdminAction({
-    action: 'deleteMember',
-    memberId
-  });
+export async function deleteMember(memberId: string): Promise<ApiResponse> {
+  return postAdminAction({ action: 'deleteMember', memberId });
 }
 
-/* -------------------- CORE POST HANDLER -------------------- */
+/* CORE POST */
 
 async function postAdminAction(payload: any): Promise<ApiResponse> {
-  const apiUrl = getApiUrl();
-  const password = getAdminPassword();
+  const baseUrl = getApiUrl();
+  if (!baseUrl) return { success: false, error: 'System Error: API URL not configured' };
 
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'   // <-- THIS is what we must change
-    },
-    body: JSON.stringify({
-      password,
-      ...payload
-    })
-  });
+  try {
+    const response = await fetchWithTimeout(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain'
+      },
+      body: JSON.stringify({
+        password: getAdminPassword(),
+        ...payload
+      })
+    });
 
-  return response.json();
+    if (!response.ok) throw new Error('Server error');
+    return await response.json();
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.name === 'AbortError' ? 'Request timed out' : 'Network error'
+    };
+  }
 }
 
+/* AUTH */
 
-/* -------------------- AUTH -------------------- */
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  const baseUrl = getApiUrl();
+  if (!baseUrl) throw new Error('System Error: API URL not configured');
 
-export async function verifyAdminPassword(
-  password: string
-): Promise<boolean> {
-  const url = `${getApiUrl()}?action=getAll&password=${encodeURIComponent(password)}`;
-  const data = await (await fetch(url)).json();
+  const url = `${baseUrl}?action=getAll&password=${encodeURIComponent(password)}`;
 
-  if (data.success) {
-    setAdminPassword(password);
-    return true;
+  try {
+    const response = await fetchWithTimeout(url);
+    if (!response.ok) throw new Error('Server error');
+    const data = await response.json();
+
+    if (data.success) {
+      setAdminPassword(password);
+      return true;
+    }
+  } catch (err) {
+    // Auth check failed
   }
   return false;
 }

@@ -34,22 +34,20 @@ export default function App() {
         <nav className="flex gap-6 text-sm font-medium">
           <button
             onClick={() => setMode('member')}
-            className={`transition ${
-              mode === 'member'
+            className={`transition ${mode === 'member'
                 ? 'text-emerald-400'
                 : 'text-purple-300 hover:text-white'
-            }`}
+              }`}
           >
             Member Lookup
           </button>
 
           <button
             onClick={() => setMode('admin')}
-            className={`transition ${
-              mode === 'admin'
+            className={`transition ${mode === 'admin'
                 ? 'text-emerald-400'
                 : 'text-purple-300 hover:text-white'
-            }`}
+              }`}
           >
             Admin Panel
           </button>
@@ -68,6 +66,7 @@ export default function App() {
         <a
           href={gymConfig.address.mapLink}
           target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center gap-2 text-purple-300 hover:text-white transition"
         >
           <span className="text-lg">📍</span>

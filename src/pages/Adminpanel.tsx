@@ -1,19 +1,27 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Lock, User, Phone, Calendar, Award, Plus, Edit2, Trash2, 
-  RefreshCw, LogOut, CheckCircle, XCircle, Loader2, Users,
+import {
+  Lock, Phone, Calendar, Award, Plus, Edit2, Trash2,
+  RefreshCw, LogOut, CheckCircle, Loader2, Users,
   ChevronDown, X, Save, AlertTriangle
 } from 'lucide-react';
-import { 
-  getAllMembers, verifyAdminPassword, isAdminLoggedIn, 
+import {
+  getAllMembers, verifyAdminPassword, isAdminLoggedIn,
   clearAdminSession, addMember, renewMembership, deleteMember,
   getApiUrl, updateMember
 } from '../api/gymApi';
 import type { Member, NewMemberData } from '../types/member';
 
 type ModalType = 'add' | 'edit' | 'renew' | 'delete' | null;
+
+const generateMemberId = (members: Member[]): string => {
+  if (members.length === 0) return '001';
+  const maxIdInt = Math.max(
+    ...members.map(m => parseInt(m.id, 10) || 0)
+  );
+  return String(maxIdInt + 1).padStart(3, '0');
+};
 
 export default function AdminPanel() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -103,7 +111,7 @@ export default function AdminPanel() {
 
   const openAddModal = () => {
     setFormData({
-      id: `GYM${String(members.length + 1).padStart(3, '0')}`,
+      id: '',
       name: '',
       phone: '',
       age: 25,
@@ -145,21 +153,59 @@ export default function AdminPanel() {
   const closeModal = () => {
     setModal(null);
     setSelectedMember(null);
-    setError(null);
   };
 
   const handleAddMember = async (e?: React.MouseEvent<HTMLButtonElement>) => {
-    e?.preventDefault(); // ✅ prevents form interference
-  
-    console.log('handleAddMember TRIGGERED');
-  
+    e?.preventDefault();
+
+    // 🚨 VALIDATION START
+    const name = formData.name?.trim() || '';
+    const phone = (formData.phone || '').replace(/\D/g, '');
+    const age = Number(formData.age);
+    const weight = Number(formData.weight);
+    const startDate = formData.startDate?.trim() || '';
+
+    if (!name) {
+      setError('Name is required');
+      return;
+    }
+    if (!phone || phone.length !== 10) {
+      setError('Phone must be exactly 10 digits');
+      return;
+    }
+    if (isNaN(age) || age <= 0) {
+      setError('Age must be a valid number greater than 0');
+      return;
+    }
+    if (isNaN(weight) || weight <= 0) {
+      setError('Weight must be a valid number greater than 0');
+      return;
+    }
+    if (!startDate) {
+      setError('Start date is required');
+      return;
+    }
+    // 🚨 VALIDATION END
+
     setLoading(true);
     setError(null);
-  
+
+    // Auto-generate ID just before payload creation (ignore formData.id)
+    const generatedId = generateMemberId(members);
+
+    const newMemberData: NewMemberData = {
+      id: generatedId,
+      name: name,
+      phone: phone,
+      age: age,
+      weight: weight,
+      membershipType: formData.membershipType || '3 Months',
+      startDate: startDate
+    };
+
     try {
-      const response = await addMember(formData as NewMemberData);
-      console.log('addMember RESPONSE:', response);
-  
+      const response = await addMember(newMemberData);
+
       if (response.success) {
         setSuccess('Member added successfully!');
         closeModal();
@@ -174,23 +220,63 @@ export default function AdminPanel() {
       setLoading(false);
     }
   };
-  
 
-  const handleEditMember = async () => {
-    if (!selectedMember) return;
+
+  const handleEditMember = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+
+    if (!selectedMember) {
+      setError("No member selected for editing");
+      return;
+    }
+
+    // 🚨 VALIDATION START
+    const rawName = formData.name?.trim() || '';
+    const rawPhone = (formData.phone || '').replace(/\D/g, '');
+    const rawAge = Number(formData.age);
+    const rawWeight = Number(formData.weight);
+    const rawStartDate = formData.startDate?.trim() || '';
+
+    if (!rawName) {
+      setError('Name is required');
+      return;
+    }
+    if (!rawPhone || rawPhone.length !== 10) {
+      setError('Phone must be exactly 10 digits');
+      return;
+    }
+    if (isNaN(rawAge) || rawAge <= 0) {
+      setError('Age must be a valid number greater than 0');
+      return;
+    }
+    if (isNaN(rawWeight) || rawWeight <= 0) {
+      setError('Weight must be a valid number greater than 0');
+      return;
+    }
+    if (!rawStartDate) {
+      setError('Start date is required');
+      return;
+    }
+    // 🚨 VALIDATION END
+
     setLoading(true);
     setError(null);
 
+    const payload: Member = {
+      id: selectedMember.id,
+      name: rawName,
+      phone: rawPhone,
+      age: rawAge,
+      weight: rawWeight,
+      membershipType: formData.membershipType || selectedMember.membershipType,
+      startDate: rawStartDate,
+      endDate: selectedMember.endDate,
+      status: selectedMember.status,
+    };
+
     try {
-      const response = await updateMember({
-        id: selectedMember.id,
-        name: formData.name,
-        phone: formData.phone,
-        age: formData.age,
-        weight: formData.weight,
-        membershipType: formData.membershipType,
-        startDate: formData.startDate,
-      });
+      const response = await updateMember(payload as Member);
+
       if (response.success) {
         setSuccess('Member updated successfully!');
         closeModal();
@@ -407,31 +493,28 @@ export default function AdminPanel() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                filter === 'all' 
-                  ? 'bg-white/20 text-white' 
-                  : 'bg-white/5 text-purple-300 hover:bg-white/10'
-              }`}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filter === 'all'
+                ? 'bg-white/20 text-white'
+                : 'bg-white/5 text-purple-300 hover:bg-white/10'
+                }`}
             >
               All
             </button>
             <button
               onClick={() => setFilter('active')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                filter === 'active' 
-                  ? 'bg-emerald-500/30 text-emerald-300' 
-                  : 'bg-white/5 text-purple-300 hover:bg-white/10'
-              }`}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filter === 'active'
+                ? 'bg-emerald-500/30 text-emerald-300'
+                : 'bg-white/5 text-purple-300 hover:bg-white/10'
+                }`}
             >
               Active
             </button>
             <button
               onClick={() => setFilter('expired')}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                filter === 'expired' 
-                  ? 'bg-red-500/30 text-red-300' 
-                  : 'bg-white/5 text-purple-300 hover:bg-white/10'
-              }`}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filter === 'expired'
+                ? 'bg-red-500/30 text-red-300'
+                : 'bg-white/5 text-purple-300 hover:bg-white/10'
+                }`}
             >
               Expired
             </button>
@@ -453,6 +536,21 @@ export default function AdminPanel() {
             </button>
           </div>
         </div>
+
+        {/* Global Error Display */}
+        {error && !modal && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-2xl flex items-start gap-3"
+          >
+            <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+            <div className="text-red-300 text-sm">
+              <strong className="block font-semibold mb-1">System Error</strong>
+              {error}
+            </div>
+          </motion.div>
+        )}
 
         {/* Members List */}
         {loading && members.length === 0 ? (
@@ -478,29 +576,28 @@ export default function AdminPanel() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-mono text-xs text-purple-400 bg-purple-500/20 px-2 py-0.5 rounded">
-                        {member.id}
+                        {member.id || 'N/A'}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        member.status === 'Active'
-                          ? 'bg-emerald-500/20 text-emerald-300'
-                          : 'bg-red-500/20 text-red-300'
-                      }`}>
-                        {member.status}
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${member.status === 'Active'
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : 'bg-red-500/20 text-red-300'
+                        }`}>
+                        {member.status || 'N/A'}
                       </span>
                     </div>
-                    <h3 className="text-white font-semibold truncate">{member.name}</h3>
+                    <h3 className="text-white font-semibold truncate">{member.name || 'N/A'}</h3>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-purple-300/70">
                       <span className="flex items-center gap-1">
                         <Phone className="w-3.5 h-3.5" />
-                        {member.phone}
+                        {member.phone || 'N/A'}
                       </span>
                       <span className="flex items-center gap-1">
                         <Award className="w-3.5 h-3.5" />
-                        {member.membershipType}
+                        {member.membershipType || 'N/A'}
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3.5 h-3.5" />
-                        {member.endDate}
+                        {member.endDate || 'N/A'}
                       </span>
                     </div>
                   </div>
@@ -576,16 +673,17 @@ export default function AdminPanel() {
               {/* Add/Edit Form */}
               {(modal === 'add' || modal === 'edit') && (
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-purple-300/70 mb-1">Member ID</label>
-                    <input
-                      type="text"
-                      value={formData.id || ''}
-                      onChange={(e) => setFormData({ ...formData, id: e.target.value.toUpperCase() })}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      disabled={modal === 'edit'}
-                    />
-                  </div>
+                  {modal === 'edit' && (
+                    <div>
+                      <label className="block text-sm text-purple-300/70 mb-1">Member ID</label>
+                      <input
+                        type="text"
+                        value={formData.id || ''}
+                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white opacity-50 cursor-not-allowed focus:outline-none"
+                        disabled
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm text-purple-300/70 mb-1">Name</label>
                     <input
@@ -649,23 +747,23 @@ export default function AdminPanel() {
                     />
                   </div>
                   <button
-  type="button"
-  onClick={(e) => {
-    if (modal === 'add') handleAddMember(e);
-    if (modal === 'edit') handleEditMember();
-  }}
-  disabled={loading}
-  className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-2xl shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
->
-  {loading ? (
-    <Loader2 className="w-5 h-5 animate-spin" />
-  ) : (
-    <>
-      <Save className="w-5 h-5" />
-      {modal === 'add' ? 'Add Member' : 'Save Changes'}
-    </>
-  )}
-</button>
+                    type="button"
+                    onClick={(e) => {
+                      if (modal === 'add') handleAddMember(e);
+                      if (modal === 'edit') handleEditMember(e);
+                    }}
+                    disabled={loading}
+                    className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-2xl shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        {modal === 'add' ? 'Add Member' : 'Save Changes'}
+                      </>
+                    )}
+                  </button>
 
 
                 </div>
