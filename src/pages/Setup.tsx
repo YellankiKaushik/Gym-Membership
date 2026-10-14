@@ -1,26 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Settings, Link, CheckCircle } from 'lucide-react';
-import { getApiUrl } from '../api/gymApi';
+import { getApiUrl, setApiUrl } from '../api/gymApi';
 
 interface SetupProps {
   onComplete: () => void;
 }
 
 export default function Setup({ onComplete }: SetupProps) {
-  const [apiUrl, setApiUrlState] = useState('');
+  const [apiUrl, setApiUrlState] = useState(getApiUrl);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    const existingUrl = getApiUrl();
-    if (existingUrl) {
-      setApiUrlState(existingUrl);
-    }
-  }, []);
 
   const handleSave = () => {
     if (apiUrl.trim()) {
-      localStorage.setItem('gymApiUrl', apiUrl.trim());
+      setApiUrl(apiUrl.trim());
       setSaved(true);
       setTimeout(() => {
         onComplete();

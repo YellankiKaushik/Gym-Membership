@@ -1,5 +1,12 @@
 # 🏋️ FitZone Gym – Membership Management System
 
+> **Owner authentication development branch:** the uploaded nine-column Apps Script
+> baseline and setup/rotation instructions are in [backend/OWNER_AUTH_SETUP.md](backend/OWNER_AUTH_SETUP.md).
+> Login now requires Owner ID + Password and a matching POST-session backend.
+> These changes have not been deployed; existing generated deployment assets below
+> are older releases. Run `npm test`, `npm run typecheck`, `npm run lint`, and
+> `npm run build` before review. Production behavior is not verified by mocked tests.
+
 🔗 **Live Application**  
 https://yellankikaushik.github.io/Gym-Membership/
 

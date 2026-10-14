@@ -13,28 +13,29 @@ export interface Member {
     daysRemaining?: number;
     notified?: boolean;
   }
-  
+
   export interface MemberLookupResponse {
     success: boolean;
-    member?: Member;
+    member?: PublicMember;
     error?: string;
   }
-  
+
   export interface MembersListResponse {
     success: boolean;
     members?: Member[];
     error?: string;
   }
-  
+
   export interface ApiResponse {
     success: boolean;
     message?: string;
     error?: string;
     newEndDate?: string;
+    code?: string;
   }
-  
+
   export interface NewMemberData {
-    id: string;
+    id?: string;
     name: string;
     phone: string;
     age: number;
@@ -42,10 +43,23 @@ export interface Member {
     membershipType: '3 Months' | '6 Months' | '1 Year';
     startDate: string;
   }
-  
+
   export interface RenewalData {
     memberId: string;
     membershipType: '3 Months' | '6 Months' | '1 Year';
     startDate: string;
   }
-  
+
+export type PublicMember = Pick<Member,
+  'id' | 'name' | 'phone' | 'membershipType' | 'startDate' | 'endDate' | 'status' | 'daysRemaining'>;
+
+export interface OwnerSession {
+  sessionToken: string;
+  expiresAt: number;
+  apiUrl: string;
+}
+
+export interface LoginResponse extends ApiResponse {
+  sessionToken?: string;
+  expiresAt?: number;
+}

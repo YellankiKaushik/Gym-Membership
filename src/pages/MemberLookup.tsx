@@ -11,7 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { lookupMember, getApiUrl } from '../api/gymApi';
-import type { Member } from '../types/member';
+import type { PublicMember } from '../types/member';
 
 // Gym gallery images
 import gym1 from '../assets/gym/gym1.jpg';
@@ -20,7 +20,7 @@ import gym3 from '../assets/gym/gym3.jpg';
 
 export default function MemberLookup() {
   const [memberId, setMemberId] = useState('');
-  const [member, setMember] = useState<Member | null>(null);
+  const [member, setMember] = useState<PublicMember | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
