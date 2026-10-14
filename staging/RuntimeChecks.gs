@@ -5,16 +5,15 @@ function stagingContext_() {
   if (properties.getProperty('STAGING_ONLY') !== 'true' || !expectedId) {
     throw new Error('Staging-only diagnostics require explicit test-project configuration.');
   }
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  if (!spreadsheet || spreadsheet.getId() !== expectedId) {
+  if (properties.getProperty('SPREADSHEET_ID') !== expectedId) {
     throw new Error('Wrong or unavailable staging spreadsheet context.');
   }
-  return { properties: properties, spreadsheet: spreadsheet };
+  return { properties: properties, sheet: getMemberSheet_() };
 }
 
 function checkStagingFiles() {
   const context = stagingContext_();
-  const sheet = context.spreadsheet.getActiveSheet();
+  const sheet = context.sheet;
   const expected = ['ID', 'Name', 'Phone', 'Age', 'Weight', 'Membership Type', 'Start Date', 'End Date', 'Notified'];
   const headers = sheet.getRange(1, 1, 1, 9).getDisplayValues()[0];
   const result = {
@@ -22,7 +21,7 @@ function checkStagingFiles() {
     authLoaded: typeof loginOwner_ === 'function' && typeof validateOwnerSession_ === 'function',
     bcryptLoaded: typeof bcrypt !== 'undefined' && typeof bcrypt.compareSync === 'function',
     ownerConfigured: ownerConfiguration_() !== null,
-    membersTabSelectedInEditor: sheet.getName() === 'Members',
+    configuredTabSelected: sheet.getName() === context.properties.getProperty('MEMBER_SHEET_NAME'),
     nineHeadersMatch: JSON.stringify(headers) === JSON.stringify(expected)
   };
   // Booleans only. Editor success is NOT evidence that web-app Sheet access works.

@@ -62,11 +62,11 @@ test('staging diagnostics report booleans/timings only and discard the temporary
   assert.equal(report.maxMs, 0);
 });
 
-test('missing active Sheet context returns a safe failure rather than proving web-app CRUD works', () => {
+test('configured Sheet access works with no active Sheet context in the mock web app', () => {
   const app = createBackend();
   app.context.SpreadsheetApp.getActiveSheet = () => null;
   const { sessionToken } = app.login();
-  assert.equal(app.post({ action: 'getAll', sessionToken }).success, false);
-  assert.equal(app.get({ action: 'lookup', id: '001' }).success, false);
+  assert.equal(app.post({ action: 'getAll', sessionToken }).success, true);
+  assert.equal(app.get({ action: 'lookup', id: '001' }).success, true);
   assert.equal(app.state.sheetWrites, 0);
 });

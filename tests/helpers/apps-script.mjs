@@ -18,16 +18,18 @@ export function createBackend(overrides = {}, options = {}) {
     static now() { return clock; }
   }
   const properties = new Map(Object.entries({
-    OWNER_ID: ownerId, OWNER_PASSWORD_HASH: verifier, ADMIN_EMAIL: 'owner@example.invalid', ...overrides,
+    OWNER_ID: ownerId, OWNER_PASSWORD_HASH: verifier, ADMIN_EMAIL: 'owner@example.invalid',
+    SPREADSHEET_ID: 'SYNTHETIC-STAGING-BOOK', MEMBER_SHEET_NAME: 'Members', ...overrides,
   }).filter(([, value]) => value !== undefined));
   const rows = [
     ['ID', 'Name', 'Phone', 'Age', 'Weight', 'Plan', 'Start', 'End', 'Notified'],
     ['001', 'Synthetic Member', '9999999999', 30, 70, '3 Months', new Date('2026-07-15'), new Date('2026-10-15'), false],
   ];
-  const state = { sheetReads: 0, sheetWrites: 0, emails: [], logs: [], lockHeld: false, lockAvailable: true };
+  const state = { sheetReads: 0, sheetWrites: 0, spreadsheetOpens: [], tabSelections: [],
+    emails: [], logs: [], lockHeld: false, lockAvailable: true };
   const sheet = {
-    getName: () => 'Members',
-    getDataRange: () => ({ getValues: () => rows.map(row => [...row]) }),
+    getName: () => options.sheetName || 'Members',
+    getDataRange: () => ({ getValues: () => { state.sheetReads++; return rows.map(row => [...row]); } }),
     appendRow: row => { state.sheetWrites++; rows.push(row); },
     deleteRow: row => { state.sheetWrites++; rows.splice(row - 1, 1); },
     getRange: (row, column, count = 1, width = 1) => ({
@@ -41,7 +43,6 @@ export function createBackend(overrides = {}, options = {}) {
       },
     }),
   };
-  const getSheet = () => { state.sheetReads++; return sheet; };
   const store = {
     getProperty: key => properties.get(key) ?? null,
     setProperty: (key, value) => { properties.set(key, String(value)); return store; },
@@ -53,9 +54,18 @@ export function createBackend(overrides = {}, options = {}) {
   const context = vm.createContext({
     Date: ClockDate,
     PropertiesService: { getScriptProperties: () => store },
-    SpreadsheetApp: { getActiveSheet: getSheet, getActiveSpreadsheet: () => ({
-      getActiveSheet: getSheet, getId: () => 'SYNTHETIC-STAGING-BOOK',
-    }) },
+    SpreadsheetApp: {
+      openById: id => {
+        state.spreadsheetOpens.push(id);
+        if (id !== 'SYNTHETIC-STAGING-BOOK') throw new Error('Private Google error for ' + id);
+        return { getSheetByName: name => {
+          state.tabSelections.push(name);
+          return name === sheet.getName() ? sheet : null;
+        } };
+      },
+      getActiveSheet: () => { throw new Error('Active Sheet unavailable in web app'); },
+      getActiveSpreadsheet: () => { throw new Error('Active spreadsheet unavailable in web app'); },
+    },
     console: { log: value => state.logs.push(String(value)) },
     Session: { getScriptTimeZone: () => 'Asia/Kolkata' },
     Utilities: {

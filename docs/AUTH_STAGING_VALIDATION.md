@@ -14,18 +14,37 @@ authenticated project dashboard. No staging endpoint or temporary credentials
 were supplied; no clasp executable, local `.clasp.json`, or standard user
 `.clasprc.json` was available. No Google project was created or deployed.
 
-There is also a pre-existing integration blocker: `Code.gs` uses
-`SpreadsheetApp.getActiveSheet()` in lookup/list/CRUD, and active spreadsheet
-context for email. Google's bound-script documentation says these special active
-methods are unavailable when executing as a web app:
-https://developers.google.com/apps-script/guides/bound#special_methods
+## Task 04: explicit spreadsheet selection (2026-10-14)
 
-Mock tests deliberately provide an active Sheet and cannot prove that context
-exists in Google. An editor diagnostic passing also cannot prove web-app CRUD.
-Do not silently substitute a different Sheet accessor in the staging copy and then
-claim this exact PR passed. A separately reviewed per-installation Sheet ID and
-explicit tab selection is the smallest likely next correction; no database or
-schema migration is needed. That baseline behavior was not changed in this task.
+The active-Sheet blocker is corrected in source. Every member lookup, listing,
+create/edit/renew/delete operation and expiry check now calls `getMemberSheet_()`.
+It reads `SPREADSHEET_ID` and `MEMBER_SHEET_NAME` from Script Properties, uses
+`SpreadsheetApp.openById(id).getSheetByName(name)`, and never falls back to an
+active spreadsheet/tab. Names such as `Sheet1`, `Members`, or `Gym Members 2026`
+are supported. Both settings are required; the tab name is used exactly as entered.
+
+Missing/blank/malformed ID, inaccessible/wrong ID, absent tab setting, and missing
+tab fail closed. HTTP handlers return `success:false`, code
+`MEMBER_SHEET_UNAVAILABLE`, and a generic configuration/access message. No Sheet
+ID, tab name, Google exception, credential, or member data is echoed. Editor/trigger
+invocations throw the controlled `MEMBER_SHEET_UNAVAILABLE` error before any row
+write or email. Login/logout remain independent of Sheet availability; a successful
+login alone does not prove Sheet access. Unauthorized requests never open a book.
+
+The mock now rejects active APIs and uses a fixed synthetic workbook/tab independent
+of configured values. Tests cover incorrect configuration, three tab names, all
+seven Sheet operations, and nine-column preservation. These are local regressions,
+not real Google runtime verification. An in-memory replay of the previous committed
+handlers also confirmed lookup/list fail without active APIs, while the corrected
+handlers pass. A source comparison confirmed read/CRUD/ID/date/email function bodies
+differ only in the Sheet accessor and its whitespace; Auth.gs, Bcrypt.gs and frontend
+source are unchanged. Real staging below remains **NOT RUN**.
+
+Google references:
+
+- https://developers.google.com/apps-script/guides/bound#special_methods
+- https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet-app#openById(String)
+- https://developers.google.com/apps-script/reference/spreadsheet/spreadsheet#getSheetByName(String)
 
 ## Confirmed introduced defects and corrections
 
@@ -72,7 +91,8 @@ and timer cleanup. Mutations are still not automatically retried.
 - Bcrypt's unchanged upstream payload and timer adapter load in a mock GAS-like VM
   without Node, Web Crypto, or timers, in all six file orders. This is NOT real GAS.
 - The real vendor hash is checked against the integrity-verified upstream file.
-- Sheet/date/ID/email functions were not rewritten. No production configuration,
+- Sheet selection alone was corrected in Task 04; date/ID/email eligibility and
+  column I semantics are unchanged. No production configuration,
   Sheet, email, deployment, or merge was performed.
 
 ## Repeatable isolated staging setup (manual, not executed here)
@@ -80,7 +100,8 @@ and timer cleanup. Mutations are still not automatically retried.
 1. Sign into an authorized **test** Google account/profile. Create a new disposable
    spreadsheet named `FitZone AUTH STAGING ONLY`. Do not copy real member rows,
    production Script Properties, existing deployments, or production email triggers.
-2. Name its only tab `Members`. Set columns A and C to Plain text before importing
+2. Keep its actual member tab name (`Sheet1` is valid), or rename it `Members`.
+   Copy that exact name privately for configuration. Set columns A and C to Plain text before importing
    `staging/members.tsv`, preserving `001`/`002` and the all-zero synthetic phones.
    There must be exactly nine columns: ID, Name, Phone, Age, Weight, Membership Type,
    Start Date, End Date, Notified. Column I is Boolean FALSE. Use date values/formats
@@ -92,19 +113,39 @@ and timer cleanup. Mutations are still not automatically retried.
    only the new project's empty starter code to avoid duplicate function names.
 4. Show `appsscript.json` in Project Settings and verify V8 and `Asia/Kolkata`.
    Keep test-only project scopes; do not import a production manifest containing
-   private IDs or libraries blindly. Do not add a trigger. Leave `ADMIN_EMAIL`
+   private IDs or libraries blindly. `openById` requires the Sheets OAuth scope
+   `https://www.googleapis.com/auth/spreadsheets`, not only `spreadsheets.currentonly`.
+   If explicit `oauthScopes` already exist, allow this scope in the test manifest;
+   otherwise let Apps Script infer scopes. Authorize as the test account with access
+   to the disposable Sheet. Do not add a trigger. Leave `ADMIN_EMAIL`
    unset, and never run `checkMembershipExpiries`, even with `testMode=true` (the
    uploaded function can still send email in test mode).
 5. Run `node scripts/create-owner-config.mjs` in a private local terminal. Choose
    a disposable unique Owner ID and a temporary 12+ character password. Configure
-   only `OWNER_ID` and `OWNER_PASSWORD_HASH` in this test project's Script Properties.
+   these properties in this test project's Project Settings > Script Properties:
+
+   | Property | Test-only value |
+   |---|---|
+   | `OWNER_ID` | Generated temporary, case-sensitive Owner ID |
+   | `OWNER_PASSWORD_HASH` | Complete generated bcrypt verifier |
+   | `SPREADSHEET_ID` | Disposable spreadsheet ID, without a URL or surrounding spaces |
+   | `MEMBER_SHEET_NAME` | Exact actual member tab name, e.g. `Sheet1` or `Members` |
+
+   Obtain the Sheet ID from its browser URL:
+   `https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit#gid=...`.
+   Copy only the segment between `/d/` and `/edit`; `gid` is a tab number and is
+   **not** the spreadsheet ID. Do not use a Script ID or deployment ID. No real
+   identifier should be added to source, documentation, Git, or screenshots.
+
    Keep the temporary password in a private manager; do not put it in code, Git,
    command arguments, screenshots, CI variables, or this results document.
 6. For optional editor diagnostics, add `staging/RuntimeChecks.gs` to this **test
    project only**. Set `STAGING_ONLY=true` and `STAGING_SHEET_ID` to the disposable
    Sheet ID privately. This helper has no API route, never writes member rows, and
    never sends email. Run `checkStagingFiles` from the editor: all six booleans must
-   be true. It checks editor context only, not web-app Sheet selection.
+   be true. `STAGING_SHEET_ID` must match `SPREADSHEET_ID`; selection uses the same
+   helper as the web app, not the editor's active tab. Editor success still does
+   not prove the deployed version, execution identity, redirects, or browser CORS.
 7. In the test project, create a separate Web app deployment executing as the test
    owner and accessible to Anyone if that account's policy permits it. Confirm the
    project/Sheet are disposable before authorization. Do not update an existing
@@ -126,9 +167,23 @@ and timer cleanup. Mutations are still not automatically retried.
    Open `http://127.0.0.1:4187/Gym-Membership/` and configure only the test `/exec`
    endpoint. A separate port/profile avoids replacing production localStorage.
 9. Verify login and then **getAll through /exec**, not just an editor function.
-   If listing cannot resolve the Sheet, record FAIL/BLOCKED and the sanitized error.
-   Stop dependent CRUD checks. Do not change source in the test project to hide
-   the active-Sheet issue. Request a separate reviewed Sheet-selection correction.
+   Expect exactly the synthetic rows from the configured tab. Select another blank
+   tab in the editor (or close the Sheet) and repeat lookup/list/CRUD: the selected
+   member tab must remain the target. If listing cannot resolve the Sheet, record
+   FAIL/BLOCKED and the sanitized error; stop dependent CRUD checks. Verify private
+   properties, test account sharing, OAuth scope, and the deployed source version.
+   Never substitute an active-Sheet fallback.
+10. On this disposable project only, temporarily remove `SPREADSHEET_ID`, then
+    restore it and try a nonexistent ID, then a nonexistent `MEMBER_SHEET_NAME`.
+    For each case, login may still succeed but lookup and authorized getAll must
+    return `MEMBER_SHEET_UNAVAILABLE` without identifying details; no Sheet rows
+    change. Restore valid settings. A protected request without a token must still
+    return `UNAUTHORIZED`. Do not run an expiry check or trigger for this test.
+11. Execute browser matrix rows 1–16 below through the test `/exec` endpoint,
+    including synthetic add/edit/renew/delete. Confirm A:I after each change,
+    I=false after add/edit/renew, and no tenth column. Record only sanitized
+    status/code, row counts, timings, commit/version, viewport and pass/fail.
+    Do not export request bodies, session records, private endpoints or HAR files.
 
 ## Real bcrypt and concurrency benchmark (manual; NOT RUN)
 
@@ -219,17 +274,15 @@ an unauthenticated GET fallback, or browser security bypasses to make tests pass
 
 ## Unrelated baseline issues for the next task (not fixed here)
 
-1. Explicit Sheet selection is required; active-tab assumptions risk failure/wrong
-   target. Verify all API handlers and the email trigger use one intended tab.
-2. `renewMember` returns `{success:true}` while the React success toast reads
+1. `renewMember` returns `{success:true}` while the React success toast reads
    `newEndDate`, displaying `undefined`. This mismatch predates the review correction.
-3. Raw numeric Sheet ID/phone cells can break frontend string searches. Fixtures
+2. Raw numeric Sheet ID/phone cells can break frontend string searches. Fixtures
    must use Plain text, but normalization still needs its own reviewed correction.
-4. Month-end arithmetic, ID reuse/concurrent writes, stale edits and manual Sheet
+3. Month-end arithmetic, ID reuse/concurrent writes, stale edits and manual Sheet
    reconciliation are unchanged.
-5. Notification suppression checks `notified && days > 7` although alerts are for
+4. Notification suppression checks `notified && days > 7` although alerts are for
    days <= 7, and flags are written before email sending. No real email tests ran.
-6. Existing header overflow at phone widths, hidden first lookup validation errors,
+5. Existing header overflow at phone widths, hidden first lookup validation errors,
    missing setup-guide links and old generated deployment assets remain outside auth.
 
 ## Evidence record and merge gate
@@ -246,13 +299,19 @@ an unauthenticated GET fallback, or browser security bypasses to make tests pass
   was cleared after rejection. Endpoint `https://example.invalid/exec` was rejected
   before a request, using only a temporary local origin on port 4187. This proves
   local form/error behavior only, not real login, CRUD, redirects, or Google CORS.
-- Final local suite: **58 passed, 0 failed**, including all six mock file-load
+- Task 03 local suite: **58 passed, 0 failed**, including all six mock file-load
   orders and guarded staging diagnostics. Typecheck, lint and build pass; build
   retains the pre-existing stale Browserslist data warning. GitHub CI results must
   be checked against the pushed commit separately.
 - GitHub Actions runs Node 24, locked installation, tests, typecheck, lint and build
   with read-only repository permission and no Google secrets or deployment step.
 
-Do not merge this as a verified release until the active-Sheet blocker has an agreed
-resolution and real Google staging evidence is recorded for the matrix, bcrypt
-timings and redirects. Do not merge or deploy merely because mocked CI is green.
+Task 04 local suite: **73 passed, 0 failed**. `npm run typecheck`, `npm run lint`,
+and `npm run build` all passed (exit 0). Build retains the existing stale
+Browserslist data warning; no dependencies were changed. The existing PR workflow repeats these checks; it cannot access Google.
+Task 03 local browser observations above are historical, not a Task 04 browser rerun.
+
+**GO for disposable staging preparation; NO-GO for a staging-validated merge.**
+The active-Sheet source blocker is fixed, but real Google staging evidence is still
+required for correct workbook/tab selection, the browser matrix, bcrypt timings,
+execution identity, OAuth authorization and ContentService redirects. Do not merge or deploy merely because mocked CI is green.

@@ -10,6 +10,24 @@ const CONFIG = {
 
 // ==================== SETUP ====================
 
+function getMemberSheet_() {
+  const properties = PropertiesService.getScriptProperties();
+  const spreadsheetId = properties.getProperty('SPREADSHEET_ID');
+  const tabName = properties.getProperty('MEMBER_SHEET_NAME');
+  if (typeof spreadsheetId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(spreadsheetId) ||
+      typeof tabName !== 'string' || !tabName.trim()) {
+    throw new Error('MEMBER_SHEET_UNAVAILABLE');
+  }
+  try {
+    const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(tabName);
+    if (!sheet) throw new Error('Missing member tab');
+    return sheet;
+  } catch (err) {
+    // Never forward Google exceptions: they can contain private identifiers.
+    throw new Error('MEMBER_SHEET_UNAVAILABLE');
+  }
+}
+
 function setAdminEmail() {
   // Configure the recipient privately in Project Settings > Script Properties.
   const email = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAIL');
@@ -41,7 +59,10 @@ function doGet(e) {
 
     return createResponse({
       success: false,
-      error: 'Unable to complete lookup'
+      code: err && err.message === 'MEMBER_SHEET_UNAVAILABLE' ? 'MEMBER_SHEET_UNAVAILABLE' : 'REQUEST_FAILED',
+      error: err && err.message === 'MEMBER_SHEET_UNAVAILABLE'
+        ? 'Member Sheet unavailable. Check spreadsheet and tab configuration or access.'
+        : 'Unable to complete lookup'
     });
   }
 }
@@ -101,7 +122,10 @@ function doPost(e) {
 
     return createResponse({
       success: false,
-      error: 'Unable to complete request'
+      code: err && err.message === 'MEMBER_SHEET_UNAVAILABLE' ? 'MEMBER_SHEET_UNAVAILABLE' : 'REQUEST_FAILED',
+      error: err && err.message === 'MEMBER_SHEET_UNAVAILABLE'
+        ? 'Member Sheet unavailable. Check spreadsheet and tab configuration or access.'
+        : 'Unable to complete request'
     });
   }
 }
@@ -118,7 +142,7 @@ function handleMemberLookup(memberId) {
     });
   }
 
-  const sheet = SpreadsheetApp.getActiveSheet();
+  const sheet = getMemberSheet_();
   const rows = sheet.getDataRange().getValues();
 
   const today = new Date();
@@ -164,7 +188,7 @@ function handleMemberLookup(memberId) {
 
 function handleGetAllMembers() {
 
-  const sheet = SpreadsheetApp.getActiveSheet();
+  const sheet = getMemberSheet_();
   const rows = sheet.getDataRange().getValues();
 
   const today = new Date();
@@ -226,7 +250,7 @@ function addMember(m) {
     };
   }
 
-  const sheet = SpreadsheetApp.getActiveSheet();
+  const sheet = getMemberSheet_();
 
   // GENERATE UNIQUE ID
   const generatedId = generateNextId(sheet);
@@ -305,7 +329,7 @@ function updateMember(m) {
     };
   }
 
-  const sheet = SpreadsheetApp.getActiveSheet();
+  const sheet = getMemberSheet_();
   const rows = sheet.getDataRange().getValues();
 
   for (let i = 1; i < rows.length; i++) {
@@ -365,7 +389,7 @@ function updateMember(m) {
 
 function renewMember(data) {
 
-  const sheet = SpreadsheetApp.getActiveSheet();
+  const sheet = getMemberSheet_();
   const rows = sheet.getDataRange().getValues();
 
   for (let i = 1; i < rows.length; i++) {
@@ -413,7 +437,7 @@ function renewMember(data) {
 
 function deleteMember(memberId) {
 
-  const sheet = SpreadsheetApp.getActiveSheet();
+  const sheet = getMemberSheet_();
   const rows = sheet.getDataRange().getValues();
 
   for (let i = 1; i < rows.length; i++) {
@@ -441,10 +465,7 @@ function deleteMember(memberId) {
 
 function checkMembershipExpiries(testMode = false) {
 
-  const sheet =
-    SpreadsheetApp
-      .getActiveSpreadsheet()
-      .getActiveSheet();
+  const sheet = getMemberSheet_();
 
   const rows = sheet.getDataRange().getValues();
 

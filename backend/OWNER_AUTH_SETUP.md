@@ -4,15 +4,18 @@ This change preserves React, Apps Script, Sheets, and one installation per gym.
 The uploaded `Code.gs` is the baseline, not proof of what production currently runs.
 
 **Staging review:** See [the staging procedure and evidence](../docs/AUTH_STAGING_VALIDATION.md).
-The uploaded baseline uses active-Sheet methods that Google documents as unavailable
-to web apps. Authentication may succeed while listing/CRUD fail. This is an open
-integration blocker; an editor-only or mocked check does not establish web-app access.
+Task 04 replaces active-Sheet access with a configured workbook and tab for every
+member operation and expiry check. Real web-app access still requires the disposable
+Google staging procedure; editor-only and mocked checks are not runtime evidence.
 
 ## Files and nine-column compatibility
 
 The Apps Script project needs **all three** files: `Code.gs`, `Auth.gs`, and `Bcrypt.gs`.
 Do not install `docs/BACKEND_SCRIPT_MODIFIED.gs`: it is an older, incompatible ten-column draft.
-Keep the original project manifest, timezone, Google scopes, and email trigger configuration.
+Preserve the project timezone and existing notification schedule. `openById` needs
+`https://www.googleapis.com/auth/spreadsheets`; if the manifest explicitly limits
+scopes to `spreadsheets.currentonly`, the full Sheets scope and reauthorization
+are required. Validate this in staging before any future production cutover.
 The private production manifest has not been supplied or reconstructed here.
 
 The Sheet layout is unchanged: A ID, B Name, C Phone, D Age, E Weight, F Plan,
@@ -42,7 +45,16 @@ In Apps Script **Project Settings > Script Properties**, set:
 | --- | --- |
 | `OWNER_ID` | Case-sensitive ID, 1–128 characters, no surrounding whitespace |
 | `OWNER_PASSWORD_HASH` | Complete bcrypt verifier printed by the local tool |
+| `SPREADSHEET_ID` | ID between `/d/` and `/edit` in the intended Sheet URL (not `gid`, a Script ID or a full URL) |
+| `MEMBER_SHEET_NAME` | Exact actual member tab name, including case/spaces; `Sheet1` and `Members` are valid |
 | `ADMIN_EMAIL` | Owner's private notification recipient, configured manually |
+
+Both Sheet properties are required. The helper opens only that workbook/tab with
+no active-Sheet fallback. A missing, malformed or inaccessible ID, blank tab setting,
+or nonexistent tab produces `MEMBER_SHEET_UNAVAILABLE` without private identifiers.
+Login/logout do not require Sheet access; lookup and authorized member operations do.
+Check sharing with the web app's execution account and the Sheets OAuth scope if
+valid-looking settings fail. No configuration value is hardcoded in source.
 
 Missing, empty, or invalid owner configuration disables login and protected actions.
 `ADMIN_EMAIL` is notification configuration, not a login requirement. Its existing
