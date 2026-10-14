@@ -3,6 +3,11 @@
 This change preserves React, Apps Script, Sheets, and one installation per gym.
 The uploaded `Code.gs` is the baseline, not proof of what production currently runs.
 
+**Staging review:** See [the staging procedure and evidence](../docs/AUTH_STAGING_VALIDATION.md).
+The uploaded baseline uses active-Sheet methods that Google documents as unavailable
+to web apps. Authentication may succeed while listing/CRUD fail. This is an open
+integration blocker; an editor-only or mocked check does not establish web-app access.
+
 ## Files and nine-column compatibility
 
 The Apps Script project needs **all three** files: `Code.gs`, `Auth.gs`, and `Bcrypt.gs`.
@@ -88,6 +93,12 @@ This task does not deploy or change any real configuration.
   hashes, tokens, or payloads are logged; exception responses use generic errors.
 - Only reads and logout are retried automatically. Add/edit/renew/delete and login
   are not retried after a lost response; the backend has no mutation idempotency layer.
+- Pending logins are invalidated by logout, endpoint changes, or a newer login.
+  A late returned token is revoked best-effort at the original endpoint and never
+  replaces the current browser session. If the response is permanently lost or cleanup
+  fails, an unclaimed server session can remain until its absolute expiry.
+- Request timeouts cover both response headers and JSON body consumption. Timers
+  remain active through ContentService redirect/body processing.
 
 ## Credential rotation and emergency revocation
 

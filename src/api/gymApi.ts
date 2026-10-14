@@ -6,6 +6,7 @@ import type {
 
 const SESSION_KEY = 'gymOwnerSession';
 export const SESSION_ENDED_EVENT = 'gym-owner-session-ended';
+let authenticationRevision = 0;
 
 export function getApiUrl(): string {
   return localStorage.getItem('gymApiUrl') || '';
@@ -17,6 +18,7 @@ export function setApiUrl(url: string): void {
 }
 
 export function clearAdminSession(): void {
+  authenticationRevision += 1; // Also cancel a login that has not returned a token yet.
   const hadSession = sessionStorage.getItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem('gymAdminPassword'); // Remove credentials left by older releases.
@@ -25,8 +27,10 @@ export function clearAdminSession(): void {
 
 function readSession(): OwnerSession | null {
   sessionStorage.removeItem('gymAdminPassword');
+  const saved = sessionStorage.getItem(SESSION_KEY);
+  if (!saved) return null;
   try {
-    const value: unknown = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+    const value: unknown = JSON.parse(saved);
     if (value && typeof value === 'object' && 'sessionToken' in value &&
         typeof value.sessionToken === 'string' && /^[a-f0-9]{64}$/.test(value.sessionToken) &&
         'expiresAt' in value && typeof value.expiresAt === 'number' &&
@@ -51,13 +55,16 @@ function failure(error: string, code = 'NETWORK_ERROR'): ApiResponse {
   return { success: false, error, code };
 }
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, retryRead = false): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit = {}, retryRead = false): Promise<unknown> {
   const attempts = retryRead ? 3 : 1;
   for (let attempt = 0; attempt < attempts; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
     try {
-      return await fetch(url, { ...options, signal: controller.signal, redirect: 'follow', cache: 'no-store' });
+      const response = await fetch(url, { ...options, signal: controller.signal, redirect: 'follow', cache: 'no-store' });
+      if (!response.ok) throw new Error('Server error');
+      // Keep the abort deadline alive during redirected response-body consumption too.
+      return await response.json();
     } catch (error: unknown) {
       const retryable = error instanceof Error && (error.name === 'AbortError' || error.name === 'TypeError');
       if (!retryable || attempt === attempts - 1) throw error;
@@ -70,9 +77,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, retryRea
 
 async function requestJson<T extends ApiResponse>(url: string, options: RequestInit, retryRead = false): Promise<T> {
   try {
-    const response = await fetchWithTimeout(url, options, retryRead);
-    if (!response.ok) throw new Error('Server error');
-    const data: unknown = await response.json();
+    const data: unknown = await fetchWithTimeout(url, options, retryRead);
     if (!data || typeof data !== 'object' || !('success' in data) || typeof data.success !== 'boolean') {
       return failure('Invalid server response', 'INVALID_RESPONSE') as T;
     }
@@ -93,8 +98,7 @@ function isTrustedEndpoint(url: string): boolean {
   }
 }
 
-function postJson<T extends ApiResponse>(payload: object, retryRead = false): Promise<T> {
-  const url = getApiUrl();
+function postJson<T extends ApiResponse>(payload: object, retryRead = false, url = getApiUrl()): Promise<T> {
   if (!url) return Promise.resolve(failure('API URL not configured', 'NOT_CONFIGURED') as T);
   // Reject query credentials and arbitrary destinations before sending owner credentials.
   if (!isTrustedEndpoint(url)) {
@@ -107,8 +111,16 @@ function postJson<T extends ApiResponse>(payload: object, retryRead = false): Pr
 
 export async function loginOwner(ownerId: string, password: string): Promise<ApiResponse> {
   clearAdminSession();
+  const revision = authenticationRevision;
   const apiUrl = getApiUrl();
-  const response = await postJson<LoginResponse>({ action: 'login', ownerId, password });
+  const response = await postJson<LoginResponse>({ action: 'login', ownerId, password }, false, apiUrl);
+  if (revision !== authenticationRevision || apiUrl !== getApiUrl()) {
+    if (response.success && typeof response.sessionToken === 'string' && /^[a-f0-9]{64}$/.test(response.sessionToken)) {
+      // Best-effort cleanup uses the original endpoint, never the replacement gym.
+      await postJson({ action: 'logout', sessionToken: response.sessionToken }, true, apiUrl);
+    }
+    return failure('Login was cancelled. Please log in again.', 'LOGIN_CANCELLED');
+  }
   if (response.success) {
     if (typeof response.sessionToken !== 'string' || !/^[a-f0-9]{64}$/.test(response.sessionToken) ||
         typeof response.expiresAt !== 'number' || !Number.isFinite(response.expiresAt) ||

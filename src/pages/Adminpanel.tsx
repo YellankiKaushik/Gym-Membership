@@ -20,6 +20,7 @@ export default function AdminPanel() {
   const [isAuthenticated, setIsAuthenticated] = useState(isAdminLoggedIn);
   const [ownerId, setOwnerId] = useState('');
   const requestVersion = useRef(0);
+  const loginAttempt = useRef(0);
   const [password, setPassword] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,6 +52,7 @@ export default function AdminPanel() {
 
   const resetOwnerView = useCallback(() => {
     requestVersion.current += 1;
+    loginAttempt.current += 1;
     setIsAuthenticated(false);
     setMembers([]);
     setModal(null);
@@ -64,7 +66,9 @@ export default function AdminPanel() {
   const handleLogout = useCallback(async () => {
     const pending = logoutOwner(); // Captures token, immediately clears browser session.
     resetOwnerView();
+    const version = requestVersion.current;
     const response = await pending;
+    if (version !== requestVersion.current) return;
     if (!response.success && response.code !== 'UNAUTHORIZED') {
       setError('Signed out locally. Server logout could not be confirmed; the session expires within 30 minutes.');
     }
@@ -91,7 +95,10 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (isAdminLoggedIn()) void fetchMembers();
-    return () => { requestVersion.current += 1; };
+    return () => {
+      requestVersion.current += 1;
+      loginAttempt.current += 1;
+    };
   }, [fetchMembers]);
 
   useEffect(() => {
@@ -134,10 +141,13 @@ export default function AdminPanel() {
       setError('API URL not configured. Please set up first.');
       return;
     }
+    const pending = loginOwner(ownerId.trim(), password);
+    const attempt = ++loginAttempt.current;
     setLoading(true);
     setError(null);
     try {
-      const response = await loginOwner(ownerId.trim(), password);
+      const response = await pending;
+      if (attempt !== loginAttempt.current || response.code === 'LOGIN_CANCELLED') return;
       setPassword('');
       if (response.success) {
         setIsAuthenticated(true);
@@ -146,10 +156,12 @@ export default function AdminPanel() {
         setError(response.error || 'Login failed');
       }
     } catch {
-      setError('Login failed. Please try again.');
+      if (attempt === loginAttempt.current) setError('Login failed. Please try again.');
     } finally {
-      setPassword('');
-      setLoading(false);
+      if (attempt === loginAttempt.current) {
+        setPassword('');
+        setLoading(false);
+      }
     }
   };
 

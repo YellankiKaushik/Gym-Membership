@@ -10,7 +10,7 @@ const source = ts.transpileModule(readFileSync(new URL('../src/api/gymApi.ts', i
 }).outputText;
 const endpoint = 'https://script.google.com/macros/s/SYNTHETIC_TEST_ONLY/exec';
 
-function createClient() {
+function createClient(timers = { setTimeout, clearTimeout }) {
   const backend = createBackend();
   const local = new Map([['gymApiUrl', endpoint]]);
   const session = new Map();
@@ -24,7 +24,7 @@ function createClient() {
   const context = vm.createContext({
     exports: {}, Date: backend.Date, URL, Error, TypeError, Event, AbortController,
     window: new EventTarget(), localStorage: storage(local), sessionStorage: storage(session),
-    setTimeout, clearTimeout,
+    setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
     fetch: async (url, options) => {
       requests.push({ url, options });
       if (fetchOverride) return fetchOverride(url, options);
@@ -171,4 +171,76 @@ test('late unauthorized responses from an older session cannot clear a newer log
   resolveOld({ ok: true, json: async () => ({ success: false, code: 'UNAUTHORIZED' }) });
   await oldRequest;
   assert.equal(client.session.get('gymOwnerSession'), newSession);
+});
+
+test('logout cancels an outstanding login and revokes its eventual server token', async () => {
+  const client = createClient();
+  let completeLogin;
+  client.setFetch(() => new Promise(resolve => { completeLogin = resolve; }));
+  const pending = client.api.loginOwner(ownerId, password);
+  await client.api.logoutOwner();
+  client.setFetch(undefined);
+  const late = client.backend.login();
+  completeLogin({ ok: true, json: async () => late });
+  assert.equal((await pending).code, 'LOGIN_CANCELLED');
+  assert.equal(client.api.isAdminLoggedIn(), false);
+  assert.equal(client.backend.post({ action: 'getAll', sessionToken: late.sessionToken }).code, 'UNAUTHORIZED');
+});
+
+test('an older login cannot replace a newer successful session', async () => {
+  const client = createClient();
+  let completeOld;
+  client.setFetch(() => new Promise(resolve => { completeOld = resolve; }));
+  const old = client.api.loginOwner(ownerId, password);
+  client.setFetch(undefined);
+  assert.equal((await client.api.loginOwner(ownerId, password)).success, true);
+  const latest = client.session.get('gymOwnerSession');
+  const stale = client.backend.login();
+  completeOld({ ok: true, json: async () => stale });
+  assert.equal((await old).code, 'LOGIN_CANCELLED');
+  assert.equal(client.session.get('gymOwnerSession'), latest);
+  assert.equal(client.backend.post({ action: 'getAll', sessionToken: stale.sessionToken }).code, 'UNAUTHORIZED');
+});
+
+test('endpoint changes cancel pending login even when the original endpoint is restored', async () => {
+  const client = createClient();
+  let complete;
+  client.setFetch(() => new Promise(resolve => { complete = resolve; }));
+  const pending = client.api.loginOwner(ownerId, password);
+  client.api.setApiUrl('https://script.google.com/macros/s/OTHER_TEST_ONLY/exec');
+  client.api.setApiUrl(endpoint);
+  client.setFetch(undefined);
+  const late = client.backend.login();
+  complete({ ok: true, json: async () => late });
+  assert.equal((await pending).code, 'LOGIN_CANCELLED');
+  assert.equal(client.api.isAdminLoggedIn(), false);
+});
+
+test('request timeout remains active until the JSON response body has been read', async () => {
+  const active = new Map();
+  let nextId = 0;
+  const client = createClient({
+    setTimeout: callback => { const id = ++nextId; active.set(id, callback); return id; },
+    clearTimeout: id => active.delete(id),
+  });
+  let finishBody;
+  client.setFetch(async (_url, options) => ({ ok: true, json: () => new Promise((resolve, reject) => {
+    finishBody = resolve;
+    options.signal.addEventListener('abort', () => {
+      const error = new Error('Synthetic body timeout');
+      error.name = 'AbortError';
+      reject(error);
+    });
+  }) }));
+  const pending = client.api.loginOwner(ownerId, password);
+  await new Promise(setImmediate);
+  try {
+    assert.equal(active.size, 1);
+    [...active.values()][0]();
+    assert.equal((await pending).error, 'Request timed out');
+    assert.equal(active.size, 0);
+  } finally {
+    finishBody(null);
+    await pending;
+  }
 });
