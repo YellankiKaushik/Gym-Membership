@@ -4,6 +4,11 @@ React + TypeScript + Tailwind frontend, Google Apps Script backend, and a Google
 Sheets database. One installation per gym, sold as a one-time product. No
 subscription service, external database, or paid messaging API is introduced.
 
+**New gym installation:** follow [the simple installation guide](INSTALLATION.md).
+Paste only [FitZone_Complete.gs](backend/generated/FitZone_Complete.gs) into one
+Apps Script editor file. The three original backend files remain the maintained
+source; the combined installation is generated and tested automatically.
+
 Development is consolidated on **main**. Production Apps Script, Google Sheets,
 GitHub Pages assets and Vercel deployments have not been changed. Real Google
 runtime acceptance remains outstanding. Start with the [release report](docs/RELEASE_REPORT.md)
@@ -64,9 +69,11 @@ rate limiter, member authentication, or anonymity guarantee is claimed.
 
 ## Backend and Sheet compatibility
 
-The Apps Script project needs `backend/Code.gs`, `backend/Auth.gs`, and
-`backend/Bcrypt.gs`, with V8 and Asia/Kolkata. Source is separate from the deployed
-Google version. Do not upload local untracked backend drafts or old generated assets.
+For new gyms, paste only `backend/generated/FitZone_Complete.gs` into one Apps
+Script file, with V8 and Asia/Kolkata. Existing installations using the original
+`backend/Code.gs`, `backend/Auth.gs` and `backend/Bcrypt.gs` remain supported.
+Never install both forms in the same project. Source is separate from the deployed
+Google version. Do not upload local untracked backend drafts or old frontend assets.
 
 | Column | Meaning |
 | --- | --- |
@@ -164,6 +171,7 @@ References: [Vite environment variables](https://vite.dev/guide/env-and-mode),
 
 ```powershell
 npm ci
+npm run generate:backend
 npm test
 npm run typecheck
 npm run lint
@@ -178,6 +186,12 @@ Vite and that mocked backend, blocking nonlocal requests except an intercepted
 synthetic endpoint. They cover 320/375/390/768/1024/1440px, all dialogs and keyboard
 focus, CRUD/refresh/stale edits, public privacy, logout and server session expiry.
 They never follow WhatsApp links or send actual messages.
+
+`npm test` runs the suite once for the maintained source and again for the generated
+installation. Six explicit source-file-order tests still check the original files.
+`npm run check:backend` verifies that the ready-to-paste file matches its inputs;
+`npm run generate:backend` rebuilds it, and `npm run build` does so automatically.
+CI also exercises browser workflows against the generated backend.
 
 CI runs locked installation, tests, typecheck, lint, build and Chromium tests on
 pull requests and main pushes, without Google secrets or deployment steps.

@@ -5,6 +5,7 @@ import vm from 'node:vm';
 const vendor = readFileSync(new URL('../../backend/Bcrypt.gs', import.meta.url), 'utf8');
 const auth = readFileSync(new URL('../../backend/Auth.gs', import.meta.url), 'utf8');
 const code = readFileSync(new URL('../../backend/Code.gs', import.meta.url), 'utf8');
+const bundle = readFileSync(new URL('../../backend/generated/FitZone_Complete.gs', import.meta.url), 'utf8');
 const hashing = vm.createContext({ crypto: webcrypto, setTimeout, clearTimeout });
 vm.runInContext(vendor, hashing);
 export const password = 'Synthetic-owner-password!';
@@ -104,8 +105,13 @@ export function createBackend(overrides = {}, options = {}) {
     GmailApp: { sendEmail: (...args) => { options.onEmail?.(...args); if (state.failEmail) throw new Error('Synthetic rejected email'); state.emails.push(args); } },
   });
   const files = { 'Bcrypt.gs': vendor, 'Auth.gs': auth, 'Code.gs': code };
-  for (const filename of options.fileOrder || ['Bcrypt.gs', 'Auth.gs', 'Code.gs']) {
-    vm.runInContext(files[filename], context, { filename });
+  const format = options.format || (process.env.FITZONE_TEST_BACKEND === 'bundle' ? 'bundle' : 'source');
+  if (format === 'bundle' && !options.fileOrder) {
+    vm.runInContext(bundle, context, { filename: 'FitZone_Complete.gs' });
+  } else {
+    for (const filename of options.fileOrder || ['Bcrypt.gs', 'Auth.gs', 'Code.gs']) {
+      vm.runInContext(files[filename], context, { filename });
+    }
   }
   const decode = response => JSON.parse(response.text);
   return {

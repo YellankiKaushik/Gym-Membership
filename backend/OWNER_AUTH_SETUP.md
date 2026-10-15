@@ -10,7 +10,10 @@ Google staging procedure; editor-only and mocked checks are not runtime evidence
 
 ## Files and nine-column compatibility
 
-The Apps Script project needs **all three** files: `Code.gs`, `Auth.gs`, and `Bcrypt.gs`.
+For a new gym, use the [simple one-file installation guide](../INSTALLATION.md)
+and paste only `generated/FitZone_Complete.gs`. The original three-file installation
+(`Code.gs`, `Auth.gs`, `Bcrypt.gs`) remains supported for maintainability and existing
+projects. **Choose one installation form; never paste both into the same project.**
 Do not install `docs/BACKEND_SCRIPT_MODIFIED.gs`: it is an older, incompatible ten-column draft.
 Use project timezone Asia/Kolkata. Leave delivery disabled and staging triggers absent during this acceptance pass; production schedules are unchanged. `openById` needs
 `https://www.googleapis.com/auth/spreadsheets`; if the manifest explicitly limits

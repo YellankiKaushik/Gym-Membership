@@ -1,3 +1,4 @@
 # Preserve the byte-verified upstream bcrypt payload on Windows too.
 # Its license comment contains upstream trailing spaces; keep those untouched.
 backend/Bcrypt.gs text eol=lf whitespace=-blank-at-eol
+backend/generated/FitZone_Complete.gs text eol=lf whitespace=-blank-at-eol

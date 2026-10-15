@@ -4,11 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs",
+    "generate:backend": "node scripts/generate-apps-script.mjs",
+    "check:backend": "node scripts/generate-apps-script.mjs --check",
+    "test": "node --test tests/*.test.mjs && npm run test:bundle",
+    "test:bundle": "node scripts/test-apps-script-bundle.mjs",
     "test:browser": "node --test --test-concurrency=1 tests/browser/*.test.mjs",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "lint": "eslint src vite.config.ts",
     "dev": "vite",
+    "prebuild": "npm run generate:backend",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "gh-pages -d dist"
