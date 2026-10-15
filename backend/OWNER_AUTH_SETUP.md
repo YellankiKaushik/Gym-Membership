@@ -19,8 +19,9 @@ are required. Validate this in staging before any future production cutover.
 The private production manifest has not been supplied or reconstructed here.
 
 The Sheet layout is unchanged: A ID, B Name, C Phone, D Age, E Weight, F Plan,
-G Start, H End, **I Notified**. Date calculations, ID allocation, membership plans,
-email eligibility, email text, and notification-flag writes remain as uploaded.
+G Start, H End, **I Notified**. Task 05 changes ID allocation and membership calendar
+rules on its separate branch; see [membership compatibility/setup](../docs/MEMBERSHIP_CORRECTNESS.md).
+Email eligibility/text and notification-flag meanings are preserved.
 Public lookup retains its existing fields except age and weight, and masks phones.
 
 ## Configure privately
@@ -145,10 +146,9 @@ The upstream bcrypt UMD payload references a timer during initialization. A smal
 outer adapter supplies a deliberately unavailable async scheduler, allowing the
 synchronous verification API to load in Apps Script. Crypto algorithms are unmodified.
 
-Remaining pre-existing issues are outside this authentication change: month-end
-arithmetic, ID reuse/write concurrency, manual Sheet reconciliation, repeated email
-alerts, notification flags written before sending, one-month plans, full public name
-and guessable IDs, broad CRUD field validation/formula safety, and old deployment
+Remaining issues after the membership correction: historical ID recovery, manual
+Sheet reconciliation, repeated email alerts, notification flags written before
+sending, full public name and guessable IDs, broad CRUD field validation/formula safety, and old deployment
 artifacts. Email logic and those workflows were intentionally not redesigned.
 Google runtime behavior, real browser cross-origin redirects, quota behavior,
 bcrypt timing, real trigger delivery, and actual deployment identity still require

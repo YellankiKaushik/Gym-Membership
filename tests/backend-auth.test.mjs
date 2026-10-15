@@ -164,19 +164,19 @@ test('authorized CRUD retains IDs, calculations, and nine columns with I = Notif
   const member = { name: 'Synthetic New', phone: '8888888888', age: 25, weight: 65,
     membershipType: '3 Months', startDate: '2026-01-15' };
   const added = app.post({ action: 'addMember', member, sessionToken });
-  assert.equal(added.memberId, '002');
+  assert.equal(added.memberId, '2');
   assert.equal(app.rows[2].length, 9);
   assert.equal(app.rows[2][8], false);
   assert.equal(app.context.formatDate(app.rows[2][7]), '2026-04-15');
   app.rows[2][8] = true;
-  assert.equal(app.post({ action: 'updateMember', member: { ...member, id: '002', name: 'Changed' }, sessionToken }).success, true);
+  assert.equal(app.post({ action: 'updateMember', member: { ...member, id: '2', name: 'Changed' }, sessionToken }).success, true);
   assert.equal(app.rows[2][1], 'Changed');
   assert.equal(app.rows[2][8], false);
-  assert.equal(app.post({ action: 'renewMember', memberId: '002', membershipType: '6 Months', startDate: '2026-10-15', sessionToken }).success, true);
+  assert.equal(app.post({ action: 'renewMember', memberId: '2', membershipType: '6 Months', startDate: '2026-10-15', sessionToken }).success, true);
   assert.equal(app.context.formatDate(app.rows[2][7]), '2027-04-15');
   assert.equal(app.rows[2][8], false);
   assert.equal(app.rows[2].length, 9);
-  assert.equal(app.post({ action: 'deleteMember', memberId: '002', sessionToken }).success, true);
+  assert.equal(app.post({ action: 'deleteMember', memberId: '2', sessionToken }).success, true);
   assert.equal(app.rows.length, 2);
 });
 

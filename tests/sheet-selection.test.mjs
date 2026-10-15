@@ -17,20 +17,20 @@ for (const name of ['Members', 'Sheet1', 'Gym Members 2026']) {
     assert.equal(app.get({ action: 'lookup', id: '001' }).success, true);
     assert.equal(app.post({ action: 'getAll', sessionToken }).members.length, 1);
     const added = app.post({ action: 'addMember', member, sessionToken });
-    assert.equal(added.memberId, '002');
+    assert.equal(added.memberId, '2');
     assert.equal(app.rows[2].length, 9);
     assert.equal(app.rows[2][8], false);
     app.rows[2][8] = true;
     assert.equal(app.post({ action: 'updateMember', sessionToken,
-      member: { ...member, id: '002', name: 'STAGING ONLY Changed' } }).success, true);
+      member: { ...member, id: '2', name: 'STAGING ONLY Changed' } }).success, true);
     assert.equal(app.rows[2][8], false);
     app.rows[2][8] = true;
-    assert.equal(app.post({ action: 'renewMember', sessionToken, memberId: '002',
-      membershipType: '6 Months', startDate: '2026-10-15' }).success, true);
+    assert.equal(app.post({ action: 'renewMember', sessionToken, memberId: '2',
+      membershipType: '6 Months', startDate: '2027-01-16' }).success, true);
     assert.equal(app.rows[2].length, 9);
     assert.equal(app.rows[2][8], false);
-    assert.equal(app.context.formatDate(app.rows[2][7]), '2027-04-15');
-    assert.equal(app.post({ action: 'deleteMember', sessionToken, memberId: '002' }).success, true);
+    assert.equal(app.context.formatDate(app.rows[2][7]), '2027-07-16');
+    assert.equal(app.post({ action: 'deleteMember', sessionToken, memberId: '2' }).success, true);
     assert.equal(app.rows.length, 2);
     const beforeEmail = app.rows[1].slice(0, 8);
     // Gmail is mocked: this cannot send an email or execute a real trigger.
