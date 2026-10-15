@@ -109,7 +109,7 @@ function doPost(e) {
 
       // DELETE MEMBER
       case 'deleteMember':
-        return createResponse(deleteMember(data.memberId));
+        return createResponse(deleteMember(data.memberId, data.expectedVersion));
 
       default:
 
@@ -196,9 +196,21 @@ function memberRecord_(row, displayedPhone) {
   return {
     id: normalizeMemberId_(row[0]), name: String(row[1] || ''),
     phone: normalizePhone_(row[2], displayedPhone), age: row[3], weight: row[4],
-    membershipType: row[5], startDate: startDate, endDate: endDate,
+    membershipType: row[5], startDate: startDate, endDate: endDate, version: memberVersion_(row),
     status: days >= 0 ? 'Active' : 'Expired', daysRemaining: days
   };
+}
+
+function memberVersion_(row) {
+  return digestOwnerValue_(JSON.stringify(row.slice(0, 8).map(function (value) {
+    return Object.prototype.toString.call(value) === '[object Date]' ? formatDate(value) : value;
+  })));
+}
+
+function assertMemberVersion_(row, expected) {
+  if (expected !== undefined && expected !== memberVersion_(row)) {
+    membershipError_('STALE_MEMBER', 'This member changed in Sheets or another session. Refresh and reopen the form before saving.');
+  }
 }
 
 function handleMemberLookup(memberId) {
@@ -210,11 +222,11 @@ function handleMemberLookup(memberId) {
     if (rows[i][0] === '' || rows[i][0] == null) continue;
     if (normalizeMemberId_(rows[i][0]) !== id) continue;
     const member = memberRecord_(rows[i], sheet.getRange(i + 1, 3).getDisplayValues()[0][0]);
-    delete member.age;
-    delete member.weight;
-    member.phone = maskPhone(member.phone);
-    member.daysRemaining = Math.max(member.daysRemaining, 0);
-    return createResponse({ success: true, member: member });
+    // Explicit allowlist: predictable IDs must not reveal contact/identity data.
+    return createResponse({ success: true, member: {
+      id: member.id, name: 'Member #' + member.id, membershipType: member.membershipType,
+      endDate: member.endDate, status: member.status, daysRemaining: Math.max(member.daysRemaining, 0)
+    } });
   }
   return createResponse({ success: false, error: 'Member not found' });
 }
@@ -297,12 +309,14 @@ function updateMember(m) {
     for (let i = 1; i < rows.length; i++) {
       if (rows[i][0] === '' || rows[i][0] == null || normalizeMemberId_(rows[i][0]) !== id) continue;
       // A contact-only edit must preserve a manually extended or renewed expiry.
+      assertMemberVersion_(rows[i], m.version);
       const unchangedTerm = formatDate(rows[i][6]) === m.startDate && rows[i][5] === m.membershipType;
       const end = unchangedTerm ? parseMembershipDate_(formatDate(rows[i][7])) : input.end;
       sheet.getRange(i + 1, 3).setNumberFormat('@');
       sheet.getRange(i + 1, 7, 1, 2).setNumberFormat('yyyy-mm-dd');
       sheet.getRange(i + 1, 2, 1, 8).setValues([[
-        input.name, input.phone, m.age, m.weight, m.membershipType, input.start, end, false
+        input.name, input.phone, m.age, m.weight, m.membershipType, input.start, end,
+        unchangedTerm ? rows[i][8] : false
       ]]);
       return { success: true };
     }
@@ -320,6 +334,7 @@ function renewMember(data) {
     for (let i = 1; i < rows.length; i++) {
       if (rows[i][0] === '' || rows[i][0] == null || normalizeMemberId_(rows[i][0]) !== id) continue;
       // End dates are inclusive. Reject overlap; never replace the owner's input.
+      assertMemberVersion_(rows[i], data.expectedVersion);
       if (data.startDate <= formatDate(rows[i][7])) {
         return { success: false, code: 'RENEWAL_OVERLAP',
           error: 'Renewal must start after the current end date to preserve paid time. Choose a later date.' };
@@ -332,7 +347,7 @@ function renewMember(data) {
   });
 }
 
-function deleteMember(memberId) {
+function deleteMember(memberId, expectedVersion) {
   const id = normalizeMemberId_(memberId);
   return withMemberWriteLock_(function () {
     const sheet = getMemberSheet_();
@@ -340,6 +355,7 @@ function deleteMember(memberId) {
     for (let i = 1; i < rows.length; i++) {
       if (rows[i][0] === '' || rows[i][0] == null || normalizeMemberId_(rows[i][0]) !== id) continue;
       // Seed before deleting even when no member has been created by this version.
+      assertMemberVersion_(rows[i], expectedVersion);
       rememberHighestId_(rows);
       sheet.deleteRow(i + 1);
       return { success: true };
@@ -350,125 +366,147 @@ function deleteMember(memberId) {
 
 // ==================== EMAIL ====================
 
-function checkMembershipExpiries(testMode = false) {
-
-  const sheet = getMemberSheet_();
-
-  const rows = sheet.getDataRange().getValues();
-
-  const today = todayDate_();
-
-  const alerts = [];
-  const notifiedStates = [];
-
-  for (let i = 1; i < rows.length; i++) {
-
-    // SKIP EMPTY ROWS
-    if (!rows[i][0]) {
-
-      notifiedStates.push([rows[i][8]]);
-      continue;
-    }
-
-    let end;
-    try { end = formatDate(rows[i][7]); } catch (_) {
-      notifiedStates.push([rows[i][8]]);
-      continue;
-    }
-    const days = dateOrdinal_(end) - dateOrdinal_(today);
-
-    const notified = rows[i][8];
-
-    // ALREADY NOTIFIED
-    if (!testMode && notified && days > 7) {
-
-      notifiedStates.push([true]);
-      continue;
-    }
-
-    // EXPIRED OR EXPIRING IN 7 DAYS
-    if (days < 0 || days <= 7) {
-
-      let statusText = '';
-
-      if (days < 0) {
-
-        statusText =
-          `Expired ${Math.abs(days)} day(s) ago`;
-
-      } else if (days === 0) {
-
-        statusText = 'Expires today';
-
-      } else {
-
-        statusText =
-          `Expires in ${days} day(s)`;
-      }
-
-      alerts.push({
-        id: rows[i][0],
-        name: rows[i][1],
-        phone: rows[i][2],
-        end: formatDate(end),
-        status: statusText
-      });
-
-      notifiedStates.push([true]);
-
-    } else {
-
-      notifiedStates.push([
-        notified || false
-      ]);
-    }
-  }
-
-  // BATCH UPDATE
-  if (!testMode && notifiedStates.length > 0) {
-
-    sheet
-      .getRange(2, 9, notifiedStates.length, 1)
-      .setValues(notifiedStates);
-  }
-
-  // SEND EMAIL
-  if (alerts.length > 0) {
-    sendAdminEmail(alerts);
-  }
+function notifiedCell_(value) {
+  return value === true || (typeof value === 'string' && value.trim().toLowerCase() === 'true');
 }
 
-// ==================== EMAIL FORMAT ====================
+function notificationTerm_(member) {
+  return digestOwnerValue_([member.id, member.membershipType, member.startDate, member.endDate].join('|'));
+}
 
-function sendAdminEmail(list) {
+// Pure planner. Neither sends mail nor writes properties/Sheet cells.
+function planExpiryNotifications_(rows, saved, today, now) {
+  const preview = [];
+  const reviewRequired = [];
+  let invalidRows = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === '' || rows[i][0] == null) continue;
+    let member;
+    try { member = memberRecord_(rows[i]); } catch (_) { invalidRows++; continue; }
+    const days = dateOrdinal_(member.endDate) - dateOrdinal_(today);
+    if (days < 0 || days > 7) continue;
+    const term = notificationTerm_(member);
+    const key = 'EXPIRY_NOTICE_' + member.id;
+    let record = null;
+    if (Object.prototype.hasOwnProperty.call(saved, key)) {
+      try {
+        record = JSON.parse(saved[key]);
+        if (!record || !/^[a-f0-9]{64}$/.test(record.term) ||
+            !['pending', 'sent', 'failed'].includes(record.status) ||
+            !Number.isInteger(record.attempts) || record.attempts < 1 ||
+            !Number.isFinite(record.attemptedAt)) throw new Error('Invalid ledger');
+      } catch (_) { reviewRequired.push(member.id); continue; }
+    }
+    if (record && record.term === term) {
+      if (record.status === 'sent') continue; // Ledger survives a failed Column I write.
+      if (record.status === 'pending' || record.attempts >= 3) { reviewRequired.push(member.id); continue; }
+      if (now - record.attemptedAt < 60 * 60 * 1000) continue; // Failed submission: bounded retry/backoff.
+    } else if (!record && notifiedCell_(rows[i][8])) {
+      continue; // Honor legacy Notified flags when no term journal exists yet.
+    }
+    preview.push({ id: member.id, name: member.name, phone: member.phone,
+      end: member.endDate, days: days, status: days === 0 ? 'Expires today' : 'Expires in ' + days + ' day(s)',
+      term: term, key: key, row: i + 1, attempts: record && record.term === term ? record.attempts : 0 });
+  }
+  preview.sort(function (a, b) { return a.end.localeCompare(b.end) || Number(a.id) - Number(b.id); });
+  return { preview: preview, reviewRequired: reviewRequired, invalidRows: invalidRows };
+}
 
-  const email =
-    PropertiesService
-      .getScriptProperties()
-      .getProperty('ADMIN_EMAIL');
-
-  if (!email) return;
-
-  let body =
-    `Membership Alerts | ${CONFIG.GYM_NAME}\n\n`;
-
-  list.forEach((m, i) => {
-
-    body += `${i + 1}. ${m.name}\n`;
-    body += `ID: ${m.id}\n`;
-    body += `Phone: ${m.phone}\n`;
-    body += `Status: ${m.status}\n`;
-    body += `Ends: ${m.end}\n\n`;
+function checkMembershipExpiries(testMode = false) {
+  if (testMode !== true && testMode !== false) throw new Error('Use a boolean dry-run flag.');
+  const properties = PropertiesService.getScriptProperties();
+  if (!testMode && properties.getProperty('EXPIRY_EMAIL_ENABLED') !== 'true') {
+    return { success: true, disabled: true, sent: 0 };
+  }
+  if (testMode) {
+    const sheet = getMemberSheet_();
+    return { success: true, dryRun: true, ...planExpiryNotifications_(
+      memberRows_(sheet), properties.getProperties(), todayDate_(), Date.now()) };
+  }
+  // The same ScriptLock coordinates CRUD, scheduled jobs and all journal writes.
+  return withMemberWriteLock_(function () {
+    const email = properties.getProperty('ADMIN_EMAIL');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { success: false, code: 'EMAIL_NOT_CONFIGURED', sent: 0 };
+    }
+    const sheet = getMemberSheet_();
+    const plan = planExpiryNotifications_(memberRows_(sheet), properties.getProperties(), todayDate_(), Date.now());
+    let sent = 0;
+    let failed = 0;
+    let flagFailures = 0;
+    for (const alert of plan.preview) {
+      const record = { term: alert.term, status: 'pending', attempts: alert.attempts + 1, attemptedAt: Date.now() };
+      // Persist intent BEFORE Gmail. An interrupted/ambiguous attempt is never auto-retried.
+      properties.setProperty(alert.key, JSON.stringify(record));
+      try {
+        sendAdminEmail([alert], email);
+      } catch (_) {
+        record.status = 'failed';
+        properties.setProperty(alert.key, JSON.stringify(record));
+        failed++;
+        continue;
+      }
+      // Gmail submission succeeded. Journal completion BEFORE setting the legacy flag.
+      record.status = 'sent';
+      properties.setProperty(alert.key, JSON.stringify(record));
+      sent++;
+      try { sheet.getRange(alert.row, 9).setValue(true); } catch (_) { flagFailures++; }
+    }
+    return { success: failed === 0 && flagFailures === 0, sent: sent, failed: failed,
+      flagFailures: flagFailures, reviewRequired: plan.reviewRequired, invalidRows: plan.invalidRows };
   });
+}
 
-  body +=
-    `— ${CONFIG.GYM_NAME}, ${CONFIG.LOCATION}`;
+function sendAdminEmail(list, recipient) {
+  const properties = PropertiesService.getScriptProperties();
+  const email = recipient || properties.getProperty('ADMIN_EMAIL');
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('EMAIL_NOT_CONFIGURED');
+  const name = properties.getProperty('GYM_NAME') || CONFIG.GYM_NAME;
+  const location = properties.getProperty('GYM_LOCATION') || CONFIG.LOCATION;
+  let body = 'Membership Alerts | ' + name + '\n\n';
+  list.forEach(function (m, i) {
+    body += (i + 1) + '. ' + m.name + '\nID: ' + m.id + '\nPhone: ' + m.phone +
+      '\nStatus: ' + m.status + '\nEnds: ' + m.end + '\n\n';
+  });
+  GmailApp.sendEmail(email, 'Membership Expiry Alert | ' + name, body + '— ' + name + ', ' + location);
+}
 
-  GmailApp.sendEmail(
-    email,
-    `Membership Expiry Alert | ${CONFIG.GYM_NAME}`,
-    body
-  );
+// Safe editor entry point: synthetic rows only, no Sheet/property access and no Gmail.
+function previewSyntheticExpiryNotifications() {
+  const today = todayDate_();
+  const datePlus = function (days) {
+    return new Date((dateOrdinal_(today) + days) * 86400000).toISOString().slice(0, 10);
+  };
+  const rows = [['ID', 'Name', 'Phone', 'Age', 'Weight', 'Plan', 'Start', 'End', 'Notified']];
+  [7, 1, 0, -1, 8].forEach(function (days, i) {
+    rows.push([String(i + 1), 'STAGING ONLY Example ' + (i + 1), '0000000000', 25, 65,
+      '1 Month', datePlus(-30), datePlus(days), false]);
+  });
+  return { success: true, dryRun: true, synthetic: true,
+    ...planExpiryNotifications_(rows, {}, today, Date.now()) };
+}
+
+// Editor-only explicit reconciliation after checking Sent mail. Never exposed by doGet/doPost.
+function resolveExpiryNotification(memberId, resolution) {
+  if (!['sent', 'retry'].includes(resolution)) throw new Error('Choose sent or retry after checking Sent mail.');
+  const id = normalizeMemberId_(memberId);
+  return withMemberWriteLock_(function () {
+    const properties = PropertiesService.getScriptProperties();
+    const sheet = getMemberSheet_();
+    const rows = memberRows_(sheet);
+    for (let i = 1; i < rows.length; i++) {
+      if (!rows[i][0] || normalizeMemberId_(rows[i][0]) !== id) continue;
+      const key = 'EXPIRY_NOTICE_' + id;
+      const record = JSON.parse(properties.getProperty(key) || 'null');
+      if (!record || record.term !== notificationTerm_(memberRecord_(rows[i]))) throw new Error('No matching current-term attempt.');
+      record.status = resolution === 'sent' ? 'sent' : 'failed';
+      if (resolution === 'retry') { record.attempts = 1; record.attemptedAt = 0; }
+      properties.setProperty(key, JSON.stringify(record));
+      if (resolution === 'sent') sheet.getRange(i + 1, 9).setValue(true);
+      return { success: true };
+    }
+    return { success: false, error: 'Member not found' };
+  });
 }
 
 // ==================== UTIL ====================

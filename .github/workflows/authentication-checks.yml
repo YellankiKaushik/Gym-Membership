@@ -1,9 +1,9 @@
-name: Authentication checks
+name: Application checks
 
 on:
   pull_request:
   push:
-    branches: [fix/owner-authentication]
+    branches: [main]
 
 permissions:
   contents: read
@@ -29,3 +29,5 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser

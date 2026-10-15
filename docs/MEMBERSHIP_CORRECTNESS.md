@@ -1,7 +1,9 @@
 # Membership correctness — Task 05
 
-Development branch based on `fix/owner-authentication`. No production Sheet,
-Apps Script deployment, frontend publication or real email was changed.
+Authentication and membership work is now integrated into `main`. The 15 October
+completion changes supersede historical notification/privacy/session details below;
+see [release report](RELEASE_REPORT.md) and [notifications](NOTIFICATIONS.md).
+No production Sheet, Apps Script deployment, frontend publication or real email was changed.
 
 ## IDs and existing installations
 
@@ -83,8 +85,9 @@ If Sheets already converted `0123456789` to numeric `123456789` and there is no
 explicit zero-padding format, the missing zero cannot be inferred. Restore the
 phone from a trusted source as Plain text; the API does not invent padding.
 Numbers beyond safe integer precision are rejected and need restoration too.
-Writes retain the existing 10-digit local phone rule, allowing presentation spaces,
-parentheses, `+` and hyphens; international-length phone support is outside this task.
+Writes accept 10 local digits, optionally prefixed by country code 91, with
+presentation spaces, parentheses, `+` and hyphens. WhatsApp separately validates
+Indian mobile prefixes; other international numbers are not supported.
 Public lookup still excludes age/weight and exposes only the last four phone digits.
 
 ## Verification and real-Google boundary
@@ -104,11 +107,7 @@ at the same time: verify unique unpadded IDs and exactly nine cells per row. A b
 request may require a deliberate retry. Test formatted/numeric phone cells and the
 India midnight boundary. Never run expiry triggers or send real email.
 
-Email eligibility/suppression and delivery behavior are not redesigned. The expiry
-check now uses the same strict date/calendar-day normalization and still skips
-invalid end dates; its existing notification suppression/delivery-order issues
-remain. Human edits and the existing email flag writer are not covered by the CRUD
-lock, so schedule/coordinate them separately until that follow-up is reviewed.
+The completion pass replaces the historical email writer with shared locking and journaled retries; contact-only edits preserve I. See [NOTIFICATIONS.md](NOTIFICATIONS.md). Human Sheet edits remain outside ScriptLock; the owner UI detects stale records before writing when possible.
 
 Real Google Sheet writes, browser redirects/CORS, actual lock contention and
 deployment compatibility remain **NOT RUN**. Remaining authentication/server-session

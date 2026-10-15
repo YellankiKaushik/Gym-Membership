@@ -7,9 +7,11 @@ import type {
 const SESSION_KEY = 'gymOwnerSession';
 export const SESSION_ENDED_EVENT = 'gym-owner-session-ended';
 let authenticationRevision = 0;
+let ownerSession: OwnerSession | null = null;
 
 export function getApiUrl(): string {
-  return localStorage.getItem('gymApiUrl') || '';
+  const configured = typeof __GYM_PUBLIC_CONFIG__ !== 'undefined' ? __GYM_PUBLIC_CONFIG__.apiUrl : '';
+  return configured || localStorage.getItem('gymApiUrl') || '';
 }
 
 export function setApiUrl(url: string): void {
@@ -19,28 +21,25 @@ export function setApiUrl(url: string): void {
 
 export function clearAdminSession(): void {
   authenticationRevision += 1; // Also cancel a login that has not returned a token yet.
-  const hadSession = sessionStorage.getItem(SESSION_KEY);
-  sessionStorage.removeItem(SESSION_KEY);
-  sessionStorage.removeItem('gymAdminPassword'); // Remove credentials left by older releases.
+  const hadSession = ownerSession !== null;
+  ownerSession = null;
+  eraseLegacyCredentials();
   if (hadSession) window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
 }
 
 function readSession(): OwnerSession | null {
-  sessionStorage.removeItem('gymAdminPassword');
-  const saved = sessionStorage.getItem(SESSION_KEY);
-  if (!saved) return null;
-  try {
-    const value: unknown = JSON.parse(saved);
-    if (value && typeof value === 'object' && 'sessionToken' in value &&
-        typeof value.sessionToken === 'string' && /^[a-f0-9]{64}$/.test(value.sessionToken) &&
-        'expiresAt' in value && typeof value.expiresAt === 'number' &&
-        Number.isFinite(value.expiresAt) && value.expiresAt > Date.now() &&
-        'apiUrl' in value && value.apiUrl === getApiUrl()) {
-      return value as OwnerSession;
-    }
-  } catch { /* Corrupt browser state must not authenticate the owner. */ }
+  eraseLegacyCredentials();
+  if (!ownerSession) return null;
+  if (ownerSession.expiresAt > Date.now() && ownerSession.apiUrl === getApiUrl()) return ownerSession;
   clearAdminSession();
   return null;
+}
+
+function eraseLegacyCredentials(): void {
+  for (const key of [SESSION_KEY, 'gymAdminPassword']) {
+    try { sessionStorage.removeItem(key); } catch { /* Storage can be unavailable; sessions never depend on it. */ }
+    try { localStorage.removeItem?.(key); } catch { /* Erase legacy data when the browser permits it. */ }
+  }
 }
 
 export function isAdminLoggedIn(): boolean {
@@ -129,7 +128,7 @@ export async function loginOwner(ownerId: string, password: string): Promise<Api
       return failure('Invalid login response', 'INVALID_RESPONSE');
     }
     const session: OwnerSession = { sessionToken: response.sessionToken, expiresAt: response.expiresAt, apiUrl };
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    ownerSession = session;
   }
   return { success: response.success, error: response.error, code: response.code };
 }
@@ -182,6 +181,6 @@ export function renewMembership(data: RenewalData): Promise<ApiResponse> {
   return postAdminAction({ action: 'renewMember', ...data });
 }
 
-export function deleteMember(memberId: string): Promise<ApiResponse> {
-  return postAdminAction({ action: 'deleteMember', memberId });
+export function deleteMember(memberId: string, expectedVersion?: string): Promise<ApiResponse> {
+  return postAdminAction({ action: 'deleteMember', memberId, expectedVersion });
 }

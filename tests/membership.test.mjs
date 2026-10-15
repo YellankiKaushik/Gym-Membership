@@ -38,7 +38,7 @@ test('all four plans persist genuine Sheet dates and return normalized dates', (
     assert.equal(Object.prototype.toString.call(row[7]), '[object Date]');
     assert.equal(row.length, 9);
     assert.equal(row[8], false);
-    const record = app.get({ id: result.memberId }).member;
+    const record = app.send({ action: 'getAll' }).members.find(m => m.id === result.memberId);
     assert.equal(record.startDate, member.startDate);
     assert.match(record.endDate, /^\d{4}-\d{2}-\d{2}$/);
   }
@@ -161,7 +161,7 @@ test('contact-only edit preserves custom expiry; changing term recalculates and 
   const edit = { ...member, id: '1', startDate: '2026-07-15', membershipType: '3 Months' };
   assert.equal(app.send({ action: 'updateMember', member: edit }).success, true);
   assert.equal(app.context.formatDate(app.rows[1][7]), '2027-01-31');
-  assert.equal(app.rows[1][8], false);
+  assert.equal(app.rows[1][8], true); // Contact edits preserve notification eligibility.
   assert.equal(app.send({ action: 'updateMember', member: { ...edit, startDate: '2026-01-31', membershipType: '1 Month' } }).success, true);
   assert.equal(app.context.formatDate(app.rows[1][7]), '2026-02-28');
   assert.equal(app.rows[1].length, 9);
@@ -200,7 +200,7 @@ test('legacy IDs, numeric phones, text formatting and real Sheet dates are compa
   assert.equal(record.phone, '09876 54321');
   assert.equal(record.startDate, '2026-07-15');
   assert.equal(record.endDate, '2026-10-15');
-  assert.equal(app.get({ id: '001' }).member.phone, 'XXXXXX4321');
+  assert.equal('phone' in app.get({ id: '001' }).member, false);
   app.rows[1][2] = '0000000001';
   assert.equal(app.send({ action: 'getAll' }).members[0].phone, '0000000001');
 });

@@ -1,14 +1,12 @@
-# Remaining server-session verification (separate from Task 05)
+# Remaining real Google server-session verification
 
-Task 05 changes membership behavior only. `backend/Auth.gs`, `backend/Bcrypt.gs`
-and the frontend session transport are unchanged. Mocked authentication tests
-remain required; passing them does not verify Google runtime behavior.
+Authentication and membership work is integrated into main. Auth.gs and Bcrypt.gs remain unchanged by the completion pass; frontend sessions now live only in page memory. Mocked authentication tests remain required, and passing them does not verify Google runtime behavior.
 
 Use only a disposable Sheet/project and temporary credentials, following
 [AUTH_STAGING_VALIDATION.md](AUTH_STAGING_VALIDATION.md). Real Google acceptance
 for all items below remains **NOT RUN**:
 
-1. Load exactly Code.gs, Auth.gs and Bcrypt.gs from the reviewed branch; verify V8,
+1. Load exactly Code.gs, Auth.gs and Bcrypt.gs from main; verify V8,
    Asia/Kolkata, required Script Properties, execution identity and Sheets OAuth.
 2. Correct/wrong/null credentials and absent verifier fail/succeed as specified;
    login returns only the short-lived session credential and expiry, never members.

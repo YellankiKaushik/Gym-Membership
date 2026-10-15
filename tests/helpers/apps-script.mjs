@@ -12,13 +12,13 @@ export const ownerId = 'synthetic-gym-owner';
 export const verifier = hashing.bcrypt.hashSync(password, 12);
 
 export function createBackend(overrides = {}, options = {}) {
-  let clock = Date.parse('2026-10-14T12:00:00+05:30');
+  let clock = options.now ?? Date.parse('2026-10-14T12:00:00+05:30');
   class ClockDate extends Date {
     constructor(...args) { super(...(args.length ? args : [clock])); }
     static now() { return clock; }
   }
   const properties = options.shared?.properties || new Map(Object.entries({
-    OWNER_ID: ownerId, OWNER_PASSWORD_HASH: verifier, ADMIN_EMAIL: 'owner@example.invalid',
+    OWNER_ID: ownerId, OWNER_PASSWORD_HASH: verifier, ADMIN_EMAIL: 'owner@example.invalid', EXPIRY_EMAIL_ENABLED: 'true',
     SPREADSHEET_ID: 'SYNTHETIC-STAGING-BOOK', MEMBER_SHEET_NAME: 'Members', ...overrides,
   }).filter(([, value]) => value !== undefined));
   const rows = options.shared?.rows || [
@@ -41,7 +41,7 @@ export function createBackend(overrides = {}, options = {}) {
           column + j === 3 && options.phoneDisplays?.[rows.indexOf(values) + 1] !== undefined
             ? options.phoneDisplays[rows.indexOf(values) + 1] : String(value))),
       setNumberFormat: format => { state.formats.push({ row, column, count, width, format }); },
-      setValue(value) { state.sheetWrites++; rows[row - 1][column - 1] = value; },
+      setValue(value) { state.sheetWrites++; if (state.failWrites) throw new Error('Synthetic Sheet write failure'); rows[row - 1][column - 1] = value; },
       setValues(values) {
         state.sheetWrites++;
         if (state.failWrites) throw new Error('Synthetic Sheet write failure');
@@ -52,7 +52,7 @@ export function createBackend(overrides = {}, options = {}) {
   };
   const store = {
     getProperty: key => properties.get(key) ?? null,
-    setProperty: (key, value) => { properties.set(key, String(value));
+    setProperty: (key, value) => { options.beforePropertyWrite?.(key, value); properties.set(key, String(value));
       if (key === 'MEMBER_ID_HIGH_WATER_MARK') options.onCounterWrite?.();
       return store; },
     deleteProperty: key => { properties.delete(key); return store; },
@@ -101,7 +101,7 @@ export function createBackend(overrides = {}, options = {}) {
       MimeType: { JSON: 'application/json' },
       createTextOutput: text => ({ text, setMimeType() { return this; } }),
     },
-    GmailApp: { sendEmail: (...args) => state.emails.push(args) },
+    GmailApp: { sendEmail: (...args) => { options.onEmail?.(...args); if (state.failEmail) throw new Error('Synthetic rejected email'); state.emails.push(args); } },
   });
   const files = { 'Bcrypt.gs': vendor, 'Auth.gs': auth, 'Code.gs': code };
   for (const filename of options.fileOrder || ['Bcrypt.gs', 'Auth.gs', 'Code.gs']) {

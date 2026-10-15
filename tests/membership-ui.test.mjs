@@ -41,3 +41,15 @@ test('frontend default date uses gym timezone before and after India midnight', 
   assert.equal(ui.gymToday(new Date('2026-10-14T18:29:59Z')), '2026-10-14');
   assert.equal(ui.gymToday(new Date('2026-10-14T18:30:00Z')), '2026-10-15');
 });
+
+test('dashboard totals, active overlap, inclusive seven-day window and expiry ordering', () => {
+  const members = [-1, 8, 7, 0, 1].map((days, i) => ({ id: String(i + 1), name: 'STAGING ONLY Example ' + i,
+    phone: '000000000' + i, endDate: new Date(Date.parse('2026-10-15T00:00:00Z') + days * 86400000).toISOString().slice(0, 10) }));
+  assert.deepEqual(JSON.parse(JSON.stringify(ui.memberSummary(members, '2026-10-15'))), { total: 5, active: 4, expiring: 3, expired: 1 });
+  assert.deepEqual(Array.from(ui.filterMembers(members, 'expiring', '', '2026-10-15'), m => m.id), ['4', '5', '3']);
+  assert.equal(ui.filterMembers(members, 'all', '001', '2026-10-15')[0].id, '1');
+  assert.equal(ui.filterMembers(members, 'all', 'example 3', '2026-10-15')[0].id, '4');
+  assert.equal(ui.filterMembers(members, 'all', '0000000004', '2026-10-15')[0].id, '5');
+  assert.equal(ui.filterMembers(members, 'expired', '', '2026-10-15').length, 1);
+  assert.equal(ui.filterMembers([{ ...members[0], phone: '+91 00000 00004' }], 'all', '0000000004', '2026-10-15').length, 1);
+});

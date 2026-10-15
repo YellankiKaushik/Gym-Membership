@@ -12,17 +12,16 @@ Google staging procedure; editor-only and mocked checks are not runtime evidence
 
 The Apps Script project needs **all three** files: `Code.gs`, `Auth.gs`, and `Bcrypt.gs`.
 Do not install `docs/BACKEND_SCRIPT_MODIFIED.gs`: it is an older, incompatible ten-column draft.
-Preserve the project timezone and existing notification schedule. `openById` needs
+Use project timezone Asia/Kolkata. Leave delivery disabled and staging triggers absent during this acceptance pass; production schedules are unchanged. `openById` needs
 `https://www.googleapis.com/auth/spreadsheets`; if the manifest explicitly limits
 scopes to `spreadsheets.currentonly`, the full Sheets scope and reauthorization
 are required. Validate this in staging before any future production cutover.
 The private production manifest has not been supplied or reconstructed here.
 
 The Sheet layout is unchanged: A ID, B Name, C Phone, D Age, E Weight, F Plan,
-G Start, H End, **I Notified**. Task 05 changes ID allocation and membership calendar
-rules on its separate branch; see [membership compatibility/setup](../docs/MEMBERSHIP_CORRECTNESS.md).
-Email eligibility/text and notification-flag meanings are preserved.
-Public lookup retains its existing fields except age and weight, and masks phones.
+G Start, H End, **I Notified**. All work is integrated into main; see [membership rules](../docs/MEMBERSHIP_CORRECTNESS.md).
+Public lookup uses a pseudonym and excludes all contact data, start date, age and weight.
+[Expiry notifications](../docs/NOTIFICATIONS.md) now use a term journal, shared locking and a master enable switch.
 
 ## Configure privately
 
@@ -58,8 +57,7 @@ Check sharing with the web app's execution account and the Sheets OAuth scope if
 valid-looking settings fail. No configuration value is hardcoded in source.
 
 Missing, empty, or invalid owner configuration disables login and protected actions.
-`ADMIN_EMAIL` is notification configuration, not a login requirement. Its existing
-missing-recipient behavior is preserved. `setAdminEmail()` now validates a privately
+`ADMIN_EMAIL` is notification configuration, not a login requirement. Missing/invalid recipients cannot mark notifications complete. `setAdminEmail()` now validates a privately
 configured recipient; it no longer embeds or sets an email address in source.
 Remove the obsolete `ADMIN_PASSWORD` property after a reviewed future cutover.
 Do not put secrets or production Sheet/Script/deployment IDs in Git.
@@ -100,8 +98,8 @@ This task does not deploy or change any real configuration.
   separate requests. It covers wrong IDs too, and is basic throttling rather than
   network-level abuse prevention. An attacker can intentionally cause temporary
   login denial; already valid sessions remain usable.
-- Tokens are held in tab-scoped `sessionStorage`, bound to the endpoint, and sent
-  only in JSON POST bodies. Legacy `gymAdminPassword` storage is removed on access.
+- Tokens are held only in page memory, bound to the endpoint, and sent
+  only in JSON POST bodies. Reload requires login. Legacy browser credentials are erased and never restored.
   XSS or a compromised shared device can still steal a bearer token. No secrets,
   hashes, tokens, or payloads are logged; exception responses use generic errors.
 - Only reads and logout are retried automatically. Add/edit/renew/delete and login
@@ -146,10 +144,7 @@ The upstream bcrypt UMD payload references a timer during initialization. A smal
 outer adapter supplies a deliberately unavailable async scheduler, allowing the
 synchronous verification API to load in Apps Script. Crypto algorithms are unmodified.
 
-Remaining issues after the membership correction: historical ID recovery, manual
-Sheet reconciliation, repeated email alerts, notification flags written before
-sending, full public name and guessable IDs, broad CRUD field validation/formula safety, and old deployment
-artifacts. Email logic and those workflows were intentionally not redesigned.
+Remaining limitations: historical deleted-ID recovery, direct human edits during an API write, predictable-ID membership enumeration, and older production assets. Stale dashboard forms now reject changed records; they cannot lock human Sheet edits. See the release report for current verification and development dependency advisories.
 Google runtime behavior, real browser cross-origin redirects, quota behavior,
 bcrypt timing, real trigger delivery, and actual deployment identity still require
 an authorized staging acceptance test. Do not describe this as production-secure yet.

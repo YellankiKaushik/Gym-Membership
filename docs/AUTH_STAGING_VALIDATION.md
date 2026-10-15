@@ -1,3 +1,5 @@
+> **15 October 2026 development update:** PRs #1 and #2 were merged into main after passing automated checks, with the owner explicitly waiving this document's earlier real-Google staging merge gate for development integration only. Real Google acceptance is still NOT RUN, and production deployment is not authorized. This historical procedure/evidence remains available; use [FINAL_ACCEPTANCE.md](FINAL_ACCEPTANCE.md) and [RELEASE_REPORT.md](RELEASE_REPORT.md) for the current contract.
+
 # PR #1 authentication review and staging verification
 
 Date: 2026-10-14 (Asia/Kolkata). Reviewed starting head: `d298f8b`.

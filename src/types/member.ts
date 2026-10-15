@@ -14,6 +14,7 @@ export interface Member {
     status: 'Active' | 'Expired';
     daysRemaining?: number;
     notified?: boolean;
+    version?: string;
   }
 
   export interface MemberLookupResponse {
@@ -34,6 +35,7 @@ export interface Member {
     error?: string;
     newEndDate?: string;
     code?: string;
+    memberId?: string;
   }
 
   export interface NewMemberData {
@@ -50,10 +52,11 @@ export interface Member {
     memberId: string;
     membershipType: MembershipPlan;
     startDate: string;
+    expectedVersion?: string;
   }
 
 export type PublicMember = Pick<Member,
-  'id' | 'name' | 'phone' | 'membershipType' | 'startDate' | 'endDate' | 'status' | 'daysRemaining'>;
+  'id' | 'name' | 'membershipType' | 'endDate' | 'status' | 'daysRemaining'>;
 
 export interface OwnerSession {
   sessionToken: string;

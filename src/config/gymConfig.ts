@@ -1,39 +1,17 @@
+import gym1 from '../assets/gym/gym1.jpg';
+import gym2 from '../assets/gym/gym2.jpg';
+import gym3 from '../assets/gym/gym3.jpg';
+import { MEMBERSHIP_PLANS } from '../utils/membership';
+
+const installation = typeof __GYM_PUBLIC_CONFIG__ !== 'undefined' ? __GYM_PUBLIC_CONFIG__ : {};
 export const gymConfig = {
-    gym: {
-      name: 'FitZone',
-      tagline: 'Strength · Discipline · Consistency',
-      description:
-        'FitZone is a modern fitness center focused on strength training, discipline, and long-term transformation.',
-    },
-  
-    trainer: {
-      name: 'Kiran',
-      title: 'Certified Trainer',
-    },
-  
-    address: {
-      label: 'Dilsukhnagar Metro Station, Hyderabad',
-      mapLink: 'https://share.google/Fu2K81GXoea6KE8AL',
-    },
-  
-    plans: [
-      {
-        title: '1 Month',
-        description: 'A flexible month of training.',
-      },
-      {
-        title: '3 Months',
-        description: 'Perfect for beginners starting their fitness journey.',
-      },
-      {
-        title: '6 Months',
-        description: 'Ideal for consistent training and visible transformation.',
-      },
-      {
-        title: '1 Year',
-        description: 'Best value plan for complete fitness lifestyle.',
-        highlight: true,
-      },
-    ],
-  };
-  
+  gym: { name: installation.name || 'FitZone', tagline: installation.tagline || 'Strength · Discipline · Consistency',
+    description: installation.description || 'Build strength, stay consistent, and feel your best.' },
+  trainer: { name: installation.trainerName || 'Kiran', title: installation.trainerTitle || 'Certified Trainer' },
+  address: { label: installation.address || 'Dilsukhnagar, Hyderabad',
+    mapLink: installation.mapUrl || 'https://maps.google.com/?q=Dilsukhnagar+Hyderabad' },
+  logo: installation.logoUrl || '',
+  gallery: installation.galleryImages?.split(',').map(url => url.trim()).filter(Boolean) || [gym1, gym2, gym3],
+  contact: { phone: installation.contactPhone || '', email: installation.contactEmail || '' },
+  plans: MEMBERSHIP_PLANS.map(title => ({ title })),
+};

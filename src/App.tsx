@@ -1,78 +1,37 @@
 import { useState } from 'react';
-import Setup from './pages/Setup';
+import { Dumbbell } from 'lucide-react';
 import MemberLookup from './pages/MemberLookup';
 import AdminPanel from './pages/Adminpanel';
 import { gymConfig } from './config/gymConfig';
 
 export default function App() {
-  const [mode, setMode] = useState<'setup' | 'member' | 'admin'>(
-    localStorage.getItem('gymApiUrl') ? 'member' : 'setup'
-  );
-
-  return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#020617] text-white flex flex-col">
-
-      {/* HEADER */}
-      <header className="h-24 flex items-center justify-between px-8 border-b border-white/10">
-        {/* LEFT — BRAND + TRAINER */}
-        <div className="flex flex-col">
-          <div className="text-3xl font-extrabold tracking-wide">
-            {gymConfig.gym.name}
-          </div>
-
-          <div className="text-xs text-purple-300/70">
-            {gymConfig.gym.tagline}
-          </div>
-
-          {/* TRAINER UNDER BRAND */}
-          <div className="mt-1 text-sm text-emerald-400">
-            {gymConfig.trainer.name} · {gymConfig.trainer.title}
+  const [mode, setMode] = useState<'member' | 'admin'>('member');
+  return <div className="min-h-screen w-full bg-slate-950 text-white flex flex-col">
+    <header className="border-b border-white/10 bg-slate-950/90">
+      <div className="mx-auto max-w-6xl px-4 py-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          {gymConfig.logo ? <img src={gymConfig.logo} alt="" className="h-12 w-12 shrink-0 rounded-xl object-contain" />
+            : <Dumbbell className="h-10 w-10 shrink-0 text-emerald-400" aria-hidden="true" />}
+          <div className="min-w-0 break-words">
+            <p className="text-2xl font-extrabold tracking-tight">{gymConfig.gym.name}</p>
+            <p className="text-xs text-slate-300 mt-1">{gymConfig.gym.tagline}</p>
+            <p className="text-xs text-emerald-300 mt-1">{gymConfig.trainer.name} · {gymConfig.trainer.title}</p>
           </div>
         </div>
-
-        {/* RIGHT — NAV */}
-        <nav className="flex gap-6 text-sm font-medium">
-          <button
-            onClick={() => setMode('member')}
-            className={`transition ${mode === 'member'
-                ? 'text-emerald-400'
-                : 'text-purple-300 hover:text-white'
-              }`}
-          >
-            Member Lookup
-          </button>
-
-          <button
-            onClick={() => setMode('admin')}
-            className={`transition ${mode === 'admin'
-                ? 'text-emerald-400'
-                : 'text-purple-300 hover:text-white'
-              }`}
-          >
-            Admin Panel
-          </button>
+        <nav aria-label="Main navigation" className="grid grid-cols-2 gap-2 sm:flex shrink-0">
+          {(['member', 'admin'] as const).map(view => <button key={view} onClick={() => setMode(view)}
+            aria-current={mode === view ? 'page' : undefined}
+            className={`min-h-11 px-4 py-2 rounded-xl text-sm font-medium ${mode === view ? 'bg-emerald-400 text-slate-950' : 'bg-white/5 text-slate-200 hover:bg-white/10'}`}>
+            {view === 'member' ? 'Member Lookup' : 'Owner Dashboard'}
+          </button>)}
         </nav>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="flex-1 overflow-y-auto">
-        {mode === 'setup' && <Setup onComplete={() => setMode('member')} />}
-        {mode === 'member' && <MemberLookup />}
-        {mode === 'admin' && <AdminPanel />}
-      </main>
-
-      {/* FOOTER */}
-      <footer className="h-16 flex items-center justify-center border-t border-white/10 text-sm">
-        <a
-          href={gymConfig.address.mapLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 text-purple-300 hover:text-white transition"
-        >
-          <span className="text-lg">📍</span>
-          {gymConfig.address.label}
-        </a>
-      </footer>
-    </div>
-  );
+      </div>
+    </header>
+    <main className="flex-1 min-w-0">{mode === 'member' ? <MemberLookup /> : <AdminPanel />}</main>
+    <footer className="border-t border-white/10 p-5 text-center text-sm text-slate-300 space-y-2 break-words">
+      <a href={gymConfig.address.mapLink} target="_blank" rel="noopener noreferrer" className="inline-block hover:text-white">{gymConfig.address.label}</a>
+      {gymConfig.contact.phone && <p>{gymConfig.contact.phone}</p>}
+      {gymConfig.contact.email && <p>{gymConfig.contact.email}</p>}
+    </footer>
+  </div>;
 }

@@ -20,6 +20,7 @@ function createClient(timers = { setTimeout, clearTimeout }) {
     removeItem: key => map.delete(key),
   });
   const requests = [];
+  const issuedSessions = [];
   let fetchOverride;
   const context = vm.createContext({
     exports: {}, Date: backend.Date, URL, Error, TypeError, Event, AbortController,
@@ -31,12 +32,13 @@ function createClient(timers = { setTimeout, clearTimeout }) {
       const response = options.method === 'POST'
         ? backend.post(JSON.parse(options.body))
         : backend.get(Object.fromEntries(new URL(url).searchParams));
+      if (response.sessionToken) issuedSessions.push(response);
       return { ok: true, json: async () => response };
     },
   });
   vm.runInContext(source, context, { filename: 'gymApi.js' });
   return {
-    api: context.exports, backend, local, session, requests,
+    api: context.exports, backend, local, session, requests, issuedSessions,
     setFetch: callback => { fetchOverride = callback; },
   };
 }
@@ -53,14 +55,15 @@ test('renewal client receives a normalized newEndDate from the protected backend
   assert.equal(client.backend.rows[1].length, 9);
 });
 
-test('client logs in with a dedicated POST and stores only the session', async () => {
+test('client logs in with a dedicated POST and keeps credentials only in memory', async () => {
   const client = createClient();
   client.session.set('gymAdminPassword', 'legacy-synthetic-password');
   assert.equal((await client.api.loginOwner(ownerId, password)).success, true);
   assert.equal(client.requests[0].options.method, 'POST');
   assert.equal(JSON.parse(client.requests[0].options.body).action, 'login');
   assert.equal(client.session.has('gymAdminPassword'), false);
-  assert.ok(!JSON.stringify([...client.session]).includes(password));
+  assert.equal(client.session.has('gymOwnerSession'), false);
+  assert.ok(!JSON.stringify([...client.session, ...client.local]).includes(password));
   assert.equal(client.api.isAdminLoggedIn(), true);
 });
 
@@ -70,6 +73,18 @@ test('login failures and malformed success responses never create a session', as
   client.setFetch(async () => ({ ok: true, json: async () => ({ success: true }) }));
   assert.equal((await client.api.loginOwner(ownerId, password)).code, 'INVALID_RESPONSE');
   assert.equal(client.api.isAdminLoggedIn(), false);
+});
+
+test('a valid legacy browser-stored bearer token is erased and never restores owner access', async () => {
+  const client = createClient();
+  const valid = client.backend.login();
+  client.session.set('gymOwnerSession', JSON.stringify({ ...valid, apiUrl: endpoint }));
+  client.local.set('gymAdminPassword', password);
+  assert.equal(client.api.isAdminLoggedIn(), false);
+  assert.equal(client.session.has('gymOwnerSession'), false);
+  assert.equal(client.local.has('gymAdminPassword'), false);
+  assert.equal((await client.api.getAllMembers()).code, 'UNAUTHORIZED');
+  assert.equal(client.requests.length, 0);
 });
 
 test('all admin operations use token POST bodies without permanent passwords', async () => {
@@ -82,7 +97,7 @@ test('all admin operations use token POST bodies without permanent passwords', a
   await client.api.updateMember({ ...member, id: '002' });
   await client.api.renewMembership({ memberId: '002', membershipType: '3 Months', startDate: '2026-10-15' });
   await client.api.deleteMember('002');
-  const token = JSON.parse(client.session.get('gymOwnerSession')).sessionToken;
+  const token = client.issuedSessions.at(-1).sessionToken;
   for (const { url, options } of client.requests.slice(1)) {
     assert.equal(options.method, 'POST');
     const body = JSON.parse(options.body);
@@ -111,7 +126,7 @@ test('lookup sends no owner credentials while signed in and exposes no age/weigh
 test('logout clears browser state immediately and revokes the captured server session', async () => {
   const client = createClient();
   await client.api.loginOwner(ownerId, password);
-  const token = JSON.parse(client.session.get('gymOwnerSession')).sessionToken;
+  const token = client.issuedSessions.at(-1).sessionToken;
   const logout = client.api.logoutOwner();
   assert.equal(client.api.isAdminLoggedIn(), false);
   assert.equal((await logout).success, true);
@@ -124,7 +139,7 @@ test('logout clears browser state immediately and revokes the captured server se
 test('client expiry clears storage and backend expiry cannot be extended through browser state', async () => {
   const client = createClient();
   await client.api.loginOwner(ownerId, password);
-  const saved = JSON.parse(client.session.get('gymOwnerSession'));
+  const saved = client.issuedSessions.at(-1);
   client.backend.advance(30 * 60 * 1000);
   assert.equal(client.api.isAdminLoggedIn(), false);
   client.session.set('gymOwnerSession', JSON.stringify({ ...saved, expiresAt: client.backend.Date.now() + 60000 }));
@@ -179,10 +194,13 @@ test('late unauthorized responses from an older session cannot clear a newer log
   const oldRequest = client.api.getAllMembers();
   client.setFetch(undefined);
   assert.equal((await client.api.loginOwner(ownerId, password)).success, true);
-  const newSession = client.session.get('gymOwnerSession');
+  const newSession = client.issuedSessions.at(-1);
   resolveOld({ ok: true, json: async () => ({ success: false, code: 'UNAUTHORIZED' }) });
   await oldRequest;
-  assert.equal(client.session.get('gymOwnerSession'), newSession);
+  assert.equal(client.api.isAdminLoggedIn(), true);
+  client.setFetch(undefined);
+  await client.api.getAllMembers();
+  assert.equal(JSON.parse(client.requests.at(-1).options.body).sessionToken, newSession.sessionToken);
 });
 
 test('logout cancels an outstanding login and revokes its eventual server token', async () => {
@@ -206,11 +224,13 @@ test('an older login cannot replace a newer successful session', async () => {
   const old = client.api.loginOwner(ownerId, password);
   client.setFetch(undefined);
   assert.equal((await client.api.loginOwner(ownerId, password)).success, true);
-  const latest = client.session.get('gymOwnerSession');
+  const latest = client.issuedSessions.at(-1);
   const stale = client.backend.login();
   completeOld({ ok: true, json: async () => stale });
   assert.equal((await old).code, 'LOGIN_CANCELLED');
-  assert.equal(client.session.get('gymOwnerSession'), latest);
+  assert.equal(client.api.isAdminLoggedIn(), true);
+  await client.api.getAllMembers();
+  assert.equal(JSON.parse(client.requests.at(-1).options.body).sessionToken, latest.sessionToken);
   assert.equal(client.backend.post({ action: 'getAll', sessionToken: stale.sessionToken }).code, 'UNAUTHORIZED');
 });
 

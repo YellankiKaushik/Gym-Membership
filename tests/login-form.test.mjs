@@ -10,6 +10,7 @@ test('React login renders associated Owner ID and password fields without restor
   const bundle = await build({
     entryPoints: ['src/pages/Adminpanel.tsx'], bundle: true, write: false,
     platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', logLevel: 'silent',
+    loader: { '.jpg': 'dataurl' },
   });
   const session = new Map([['gymAdminPassword', 'synthetic-old-password']]);
   const module = { exports: {} };

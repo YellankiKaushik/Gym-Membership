@@ -33,3 +33,20 @@ test('country-code phones stay strings; refresh reads direct Sheet edits', () =>
   app.rows.at(-1)[5] = 'Unsupported';
   assert.equal(app.post({ action: 'getAll', sessionToken }).code, 'INVALID_PLAN');
 });
+
+test('stale dashboard edits, renewals and deletes preserve direct Sheet changes until refresh', () => {
+  const app = createBackend();
+  const sessionToken = app.login().sessionToken;
+  const original = app.post({ action: 'getAll', sessionToken }).members[0];
+  app.rows[1][1] = 'STAGING ONLY Changed Directly';
+  const before = JSON.stringify(app.rows);
+  for (const action of [
+    { action: 'updateMember', member: original },
+    { action: 'renewMember', memberId: '1', membershipType: '1 Month', startDate: '2026-10-16', expectedVersion: original.version },
+    { action: 'deleteMember', memberId: '1', expectedVersion: original.version },
+  ]) assert.equal(app.post({ ...action, sessionToken }).code, 'STALE_MEMBER');
+  assert.equal(JSON.stringify(app.rows), before);
+  assert.equal(app.state.sheetWrites, 0);
+  const refreshed = app.post({ action: 'getAll', sessionToken }).members[0];
+  assert.equal(app.post({ action: 'updateMember', sessionToken, member: refreshed }).success, true);
+});

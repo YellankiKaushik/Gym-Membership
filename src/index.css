@@ -1,3 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html { color-scheme: dark; }
+  body { margin: 0; min-width: 320px; }
+  *, *::before, *::after { box-sizing: border-box; }
+  button, a, input, select { -webkit-tap-highlight-color: transparent; }
+  button { min-height: 44px; }
+  input, select { min-width: 0; font-size: 16px; }
+  select option { background: #0f172a; color: #fff; }
+  :focus-visible { outline: 2px solid #34d399; outline-offset: 3px; }
+  button:disabled { cursor: not-allowed; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

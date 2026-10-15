@@ -23,7 +23,7 @@ for (const name of ['Members', 'Sheet1', 'Gym Members 2026']) {
     app.rows[2][8] = true;
     assert.equal(app.post({ action: 'updateMember', sessionToken,
       member: { ...member, id: '2', name: 'STAGING ONLY Changed' } }).success, true);
-    assert.equal(app.rows[2][8], false);
+    assert.equal(app.rows[2][8], true);
     app.rows[2][8] = true;
     assert.equal(app.post({ action: 'renewMember', sessionToken, memberId: '2',
       membershipType: '6 Months', startDate: '2027-01-16' }).success, true);

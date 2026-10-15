@@ -1,3 +1,5 @@
+> Historical architecture narrative. Some implementation claims below describe an older release. Use [README.md](README.md), [the release report](docs/RELEASE_REPORT.md), and [the acceptance checklist](docs/FINAL_ACCEPTANCE.md) for the current main implementation.
+
 # 🚀 FitZone — Modern Gym Membership Orchestration System
 
 ---

@@ -31,3 +31,34 @@ export function renewalDateError(start: string, currentEnd: string): string | nu
   if (start <= currentEnd) return 'Renewal must start after the current end date to preserve paid time. Choose a later date.';
   return null;
 }
+
+export type MembershipFilter = 'all' | 'active' | 'expiring' | 'expired';
+
+export function membershipState(endDate: string, today = gymToday()) {
+  const daysRemaining = Math.round((Date.parse(endDate + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 86400000);
+  const active = isMembershipDate(endDate) && daysRemaining >= 0;
+  return { status: active ? 'Active' as const : 'Expired' as const,
+    daysRemaining, expiringSoon: active && daysRemaining <= 7 };
+}
+
+type SearchableMember = { id: string; name: string; phone: string; endDate: string };
+
+export function memberSummary(members: SearchableMember[], today = gymToday()) {
+  const states = members.map(m => membershipState(m.endDate, today));
+  return { total: members.length, active: states.filter(s => s.status === 'Active').length,
+    expiring: states.filter(s => s.expiringSoon).length, expired: states.filter(s => s.status === 'Expired').length };
+}
+
+export function filterMembers<T extends SearchableMember>(members: T[], filter: MembershipFilter, search: string, today = gymToday()): T[] {
+  const term = search.trim().toLowerCase();
+  const phoneSearch = /^[+\d ()-]+$/.test(term) ? term.replace(/\D/g, '') : '';
+  return members.filter(member => {
+    const state = membershipState(member.endDate, today);
+    const statusMatch = filter === 'all' || (filter === 'active' && state.status === 'Active') ||
+      (filter === 'expired' && state.status === 'Expired') || (filter === 'expiring' && state.expiringSoon);
+    const id = /^\d{1,9}$/.test(term) ? String(Number(term)) : term;
+    return statusMatch && (!term || member.id.includes(term) || member.id === id ||
+      member.name.toLowerCase().includes(term) || member.phone.includes(term) ||
+      (!!phoneSearch && member.phone.replace(/\D/g, '').includes(phoneSearch)));
+  }).sort((a, b) => a.endDate.localeCompare(b.endDate) || Number(a.id) - Number(b.id));
+}

@@ -145,15 +145,16 @@ test('public GET never dispatches administrative actions, even with valid creden
   assert.equal(app.state.sheetWrites, 0);
 });
 
-test('public lookup remains available with masked phone and no private fields', () => {
+test('public lookup uses a pseudonym and an explicit allowlist without private fields', () => {
   const app = createBackend();
   const response = app.get({ action: 'lookup', id: '001' });
   assert.equal(response.success, true);
-  assert.equal(response.member.phone, 'XXXXXX9999');
+  assert.equal(response.member.name, 'Member #1');
   assert.deepEqual(Object.keys(response.member).sort(), [
-    'daysRemaining', 'endDate', 'id', 'membershipType', 'name', 'phone', 'startDate', 'status',
+    'daysRemaining', 'endDate', 'id', 'membershipType', 'name', 'status',
   ]);
   assert.ok(!JSON.stringify(response).includes('9999999999'));
+  assert.ok(!JSON.stringify(response).includes('Synthetic Member'));
   assert.equal(app.context.maskPhone('123'), 'XXXX');
 });
 
@@ -171,7 +172,7 @@ test('authorized CRUD retains IDs, calculations, and nine columns with I = Notif
   app.rows[2][8] = true;
   assert.equal(app.post({ action: 'updateMember', member: { ...member, id: '2', name: 'Changed' }, sessionToken }).success, true);
   assert.equal(app.rows[2][1], 'Changed');
-  assert.equal(app.rows[2][8], false);
+  assert.equal(app.rows[2][8], true);
   assert.equal(app.post({ action: 'renewMember', memberId: '2', membershipType: '6 Months', startDate: '2026-10-15', sessionToken }).success, true);
   assert.equal(app.context.formatDate(app.rows[2][7]), '2027-04-15');
   assert.equal(app.rows[2][8], false);
