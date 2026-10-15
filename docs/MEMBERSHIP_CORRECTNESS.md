@@ -5,6 +5,10 @@ Apps Script deployment, frontend publication or real email was changed.
 
 ## IDs and existing installations
 
+**Disposable staging prerequisite:** ID `3` was already issued and deleted.
+Before adopting this backend, privately ensure `MEMBER_ID_HIGH_WATER_MARK` is
+at least `3` (or the higher trusted historical maximum). Never lower or reset it.
+
 - New IDs are plain strings `1`, `2`, `3`, … in column A and API responses.
   Existing `001` and numeric `1` are both read/matched as `1`; existing ID cells
   are not rewritten. Old public lookup links still work. If both occur as separate

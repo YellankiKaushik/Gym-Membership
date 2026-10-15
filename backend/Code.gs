@@ -191,6 +191,7 @@ function memberRecord_(row, displayedPhone) {
   const startDate = formatDate(row[6]);
   const endDate = formatDate(row[7]);
   if (endDate < startDate) membershipError_('INVALID_DATE', 'Membership end date cannot precede its start date.');
+  calculateEndDate(startDate, row[5]); // Reject unknown plans in manually edited rows.
   const days = dateOrdinal_(endDate) - dateOrdinal_(todayDate_());
   return {
     id: normalizeMemberId_(row[0]), name: String(row[1] || ''),
@@ -234,10 +235,17 @@ function validateMemberInput_(member) {
   if (!member || typeof member !== 'object' || Array.isArray(member)) {
     membershipError_('INVALID_MEMBER', 'Member details required.');
   }
-  const name = String(member.name || '').trim();
+  const name = typeof member.name === 'string' ? member.name.trim() : '';
   const phone = normalizePhone_(member.phone);
-  if (!name || !/^[\d ()+-]+$/.test(phone) || phone.replace(/\D/g, '').length !== 10) {
-    membershipError_('INVALID_MEMBER', 'Name and a 10-digit phone are required.');
+  const digits = phone.replace(/\D/g, '');
+  if (!name || name.length > 120 || /^[=+@]/.test(name) || /[\u0000-\u001f]/.test(name) ||
+      !/^[\d ()+-]+$/.test(phone) || phone.length > 24 ||
+      !(digits.length === 10 || /^91\d{10}$/.test(digits))) {
+    membershipError_('INVALID_MEMBER', 'Enter a name (up to 120 characters) and a 10-digit phone, optionally with +91. Names cannot start with =, + or @.');
+  }
+  if (typeof member.age !== 'number' || !Number.isInteger(member.age) || member.age <= 0 || member.age > 120 ||
+      typeof member.weight !== 'number' || !Number.isFinite(member.weight) || member.weight <= 0 || member.weight > 500) {
+    membershipError_('INVALID_MEMBER', 'Enter a whole-number age from 1 to 120 and weight greater than 0, up to 500 kg.');
   }
   const start = parseMembershipDate_(member.startDate);
   const end = calculateEndDate(member.startDate, member.membershipType);
