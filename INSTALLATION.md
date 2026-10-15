@@ -3,7 +3,8 @@
 **You paste just one file:** [FitZone_Complete.gs](backend/generated/FitZone_Complete.gs).
 Keep this guide open while you set up the gym. You do not need to combine or edit
 any code. Each gym gets its own Google Sheet, Apps Script project and frontend
-configuration.
+configuration. The existing [FitZone production site](https://fitzone-gym-mu.vercel.app)
+is already live; these steps do not modify that installation.
 
 These steps are for a **new installation**. Your currently working gym does not
 need to be changed. Try a new installation with made-up members before using it
@@ -145,7 +146,10 @@ npm run dev
 Open the local URL printed in the terminal, normally `http://localhost:5173/`.
 If you change `.env.local`, restart this command. A published frontend must be
 rebuilt after its public configuration changes; publishing is a separate step.
-This guide does not deploy to Vercel.
+Publishing a new gym uses its own authorized frontend setup; see
+[the Vercel release flow](README.md#vercel-deployment-flow) and the
+[developer handoff](docs/README.md). Do not reuse or change the existing gym
+production environment as part of a new installation.
 
 ## 7. Check it with made-up members
 

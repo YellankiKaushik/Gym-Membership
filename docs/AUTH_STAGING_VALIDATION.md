@@ -1,3 +1,5 @@
+> Historical staging review. Later owner-authorized releases supersede the old merge/deployment restrictions below. This document does not claim those Google checks were rerun; use [current status and evidence boundaries](README.md).
+
 > **15 October 2026 development update:** PRs #1 and #2 were merged into main after passing automated checks, with the owner explicitly waiving this document's earlier real-Google staging merge gate for development integration only. Real Google acceptance is still NOT RUN, and production deployment is not authorized. This historical procedure/evidence remains available; use [FINAL_ACCEPTANCE.md](FINAL_ACCEPTANCE.md) and [RELEASE_REPORT.md](RELEASE_REPORT.md) for the current contract.
 
 # PR #1 authentication review and staging verification
@@ -181,7 +183,7 @@ and timer cleanup. Mutations are still not automatically retried.
     return `MEMBER_SHEET_UNAVAILABLE` without identifying details; no Sheet rows
     change. Restore valid settings. A protected request without a token must still
     return `UNAUTHORIZED`. Do not run an expiry check or trigger for this test.
-11. Execute browser matrix rows 1–16 below through the test `/exec` endpoint,
+11. Execute browser matrix rows 1ï¿½16 below through the test `/exec` endpoint,
     including synthetic add/edit/renew/delete. Confirm A:I after each change,
     I=false after add/edit/renew, and no tenth column. Record only sanitized
     status/code, row counts, timings, commit/version, viewport and pass/fail.
