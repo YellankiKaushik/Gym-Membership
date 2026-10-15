@@ -1,3 +1,5 @@
+import type { MembershipPlan } from '../utils/membership';
+
 // Member data types for the Gym Membership System
 
 export interface Member {
@@ -6,7 +8,7 @@ export interface Member {
     phone: string;
     age: number;
     weight: number;
-    membershipType: '3 Months' | '6 Months' | '1 Year';
+    membershipType: MembershipPlan;
     startDate: string;
     endDate: string;
     status: 'Active' | 'Expired';
@@ -40,13 +42,13 @@ export interface Member {
     phone: string;
     age: number;
     weight: number;
-    membershipType: '3 Months' | '6 Months' | '1 Year';
+    membershipType: MembershipPlan;
     startDate: string;
   }
 
   export interface RenewalData {
     memberId: string;
-    membershipType: '3 Months' | '6 Months' | '1 Year';
+    membershipType: MembershipPlan;
     startDate: string;
   }
 

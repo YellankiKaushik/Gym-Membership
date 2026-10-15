@@ -41,6 +41,18 @@ function createClient(timers = { setTimeout, clearTimeout }) {
   };
 }
 
+test('renewal client receives a normalized newEndDate from the protected backend contract', async () => {
+  const client = createClient();
+  assert.equal((await client.api.loginOwner(ownerId, password)).success, true);
+  const result = await client.api.renewMembership({
+    memberId: '1', membershipType: '1 Month', startDate: '2026-10-16',
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.newEndDate, '2026-11-16');
+  assert.equal(client.backend.context.formatDate(client.backend.rows[1][6]), '2026-10-16');
+  assert.equal(client.backend.rows[1].length, 9);
+});
+
 test('client logs in with a dedicated POST and stores only the session', async () => {
   const client = createClient();
   client.session.set('gymAdminPassword', 'legacy-synthetic-password');

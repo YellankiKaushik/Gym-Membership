@@ -272,7 +272,17 @@ The client already uses `redirect: 'follow'` and `text/plain` JSON POSTs. This i
 code evidence, not proof of real browser CORS behavior. Do not use `no-cors`, JSONP,
 an unauthenticated GET fallback, or browser security bypasses to make tests pass.
 
-## Unrelated baseline issues for the next task (not fixed here)
+## Task 05 follow-up (separate branch)
+
+The historical renewal-response, phone normalization, ID reuse/concurrency and
+month-end issues listed below are corrected on the separate membership branch.
+They remain a record of the Task 03/04 baseline, not open findings against Task 05.
+See [membership rules and staging additions](MEMBERSHIP_CORRECTNESS.md) and
+[remaining session verification](SERVER_SESSION_VERIFICATION.md). For Task 05,
+use the actual renewal date policy and unpadded IDs; the old `undefined` toast in
+matrix row 7 is no longer expected. No real Google staging results have been added.
+
+## Historical baseline issues from Task 03/04
 
 1. `renewMember` returns `{success:true}` while the React success toast reads
    `newEndDate`, displaying `undefined`. This mismatch predates the review correction.

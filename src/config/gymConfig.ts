@@ -18,6 +18,10 @@ export const gymConfig = {
   
     plans: [
       {
+        title: '1 Month',
+        description: 'A flexible month of training.',
+      },
+      {
         title: '3 Months',
         description: 'Perfect for beginners starting their fitness journey.',
       },

@@ -12,6 +12,7 @@ import {
   getApiUrl, updateMember
 } from '../api/gymApi';
 import type { Member, NewMemberData } from '../types/member';
+import { MEMBERSHIP_PLANS, gymToday, isMembershipDate, suggestedRenewalStart, renewalDateError, dayAfter } from '../utils/membership';
 
 type ModalType = 'add' | 'edit' | 'renew' | 'delete' | null;
 
@@ -41,13 +42,13 @@ export default function AdminPanel() {
     age: 0,
     weight: 0,
     membershipType: '3 Months',
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: gymToday(),
   });
 
   // Renewal form state
   const [renewalData, setRenewalData] = useState({
-    membershipType: '3 Months' as '3 Months' | '6 Months' | '1 Year',
-    startDate: new Date().toISOString().split('T')[0],
+    membershipType: '3 Months' as Member['membershipType'],
+    startDate: gymToday(),
   });
 
   const resetOwnerView = useCallback(() => {
@@ -173,7 +174,7 @@ export default function AdminPanel() {
       age: 25,
       weight: 70,
       membershipType: '3 Months',
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: gymToday(),
     });
     setModal('add');
   };
@@ -196,7 +197,7 @@ export default function AdminPanel() {
     setSelectedMember(member);
     setRenewalData({
       membershipType: member.membershipType,
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: suggestedRenewalStart(member.endDate),
     });
     setModal('renew');
   };
@@ -216,7 +217,7 @@ export default function AdminPanel() {
 
     // 🚨 VALIDATION START
     const name = String(formData.name || '').trim();
-    const phone = String(formData.phone || '').replace(/\D/g, '');
+    const phone = String(formData.phone || '').trim();
     const age = Number(formData.age);
     const weight = Number(formData.weight);
     const startDate = String(formData.startDate || '').trim();
@@ -225,7 +226,7 @@ export default function AdminPanel() {
       setError('Name is required');
       return;
     }
-    if (!phone || phone.length !== 10) {
+    if (!phone || phone.replace(/\D/g, '').length !== 10) {
       setError('Phone must be exactly 10 digits');
       return;
     }
@@ -237,8 +238,8 @@ export default function AdminPanel() {
       setError('Weight must be a valid number greater than 0');
       return;
     }
-    if (!startDate) {
-      setError('Start date is required');
+    if (!isMembershipDate(startDate)) {
+      setError('Enter a valid start date as YYYY-MM-DD.');
       return;
     }
     // 🚨 VALIDATION END
@@ -284,7 +285,7 @@ export default function AdminPanel() {
 
     // 🚨 VALIDATION START
     const rawName = String(formData.name || '').trim();
-    const rawPhone = String(formData.phone || '').replace(/\D/g, '');
+    const rawPhone = String(formData.phone || '').trim();
     const rawAge = Number(formData.age);
     const rawWeight = Number(formData.weight);
     const rawStartDate = String(formData.startDate || '').trim();
@@ -293,7 +294,7 @@ export default function AdminPanel() {
       setError('Name is required');
       return;
     }
-    if (!rawPhone || rawPhone.length !== 10) {
+    if (!rawPhone || rawPhone.replace(/\D/g, '').length !== 10) {
       setError('Phone must be exactly 10 digits');
       return;
     }
@@ -305,8 +306,8 @@ export default function AdminPanel() {
       setError('Weight must be a valid number greater than 0');
       return;
     }
-    if (!rawStartDate) {
-      setError('Start date is required');
+    if (!isMembershipDate(rawStartDate)) {
+      setError('Enter a valid start date as YYYY-MM-DD.');
       return;
     }
     // 🚨 VALIDATION END
@@ -346,6 +347,8 @@ export default function AdminPanel() {
 
   const handleRenewMember = async () => {
     if (!selectedMember) return;
+    const dateError = renewalDateError(renewalData.startDate, selectedMember.endDate);
+    if (dateError) { setError(dateError); return; }
     setLoading(true);
     setError(null);
 
@@ -356,7 +359,7 @@ export default function AdminPanel() {
         startDate: renewalData.startDate,
       });
       if (response.success) {
-        setSuccess(`Membership renewed! New end date: ${response.newEndDate}`);
+        setSuccess(`Membership renewed! New end date: ${response.newEndDate || 'refresh the member list to confirm'}`);
         closeModal();
         await fetchMembers();
         setTimeout(() => setSuccess(null), 3000);
@@ -871,13 +874,14 @@ export default function AdminPanel() {
                         onChange={(e) => setFormData({ ...formData, membershipType: e.target.value as Member['membershipType'] })}
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                       >
-                        <option value="3 Months">3 Months</option>
-                        <option value="6 Months">6 Months</option>
-                        <option value="1 Year">1 Year</option>
+                        {MEMBERSHIP_PLANS.map(plan => <option key={plan} value={plan}>{plan}</option>)}
                       </select>
                       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-300 pointer-events-none" />
                     </div>
                   </div>
+                  {modal === 'edit' && <p className="text-sm text-purple-200/70">
+                    Changing the start date or plan recalculates expiry. Contact-only edits preserve the existing expiry.
+                  </p>}
                   <div>
                     <label className="block text-sm text-purple-300/70 mb-1">Start Date</label>
                     <input
@@ -926,9 +930,7 @@ export default function AdminPanel() {
                         onChange={(e) => setRenewalData({ ...renewalData, membershipType: e.target.value as Member['membershipType'] })}
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                       >
-                        <option value="3 Months">3 Months</option>
-                        <option value="6 Months">6 Months</option>
-                        <option value="1 Year">1 Year</option>
+                        {MEMBERSHIP_PLANS.map(plan => <option key={plan} value={plan}>{plan}</option>)}
                       </select>
                       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-300 pointer-events-none" />
                     </div>
@@ -938,10 +940,16 @@ export default function AdminPanel() {
                     <input
                       type="date"
                       value={renewalData.startDate}
+                      min={dayAfter(selectedMember.endDate)}
                       onChange={(e) => setRenewalData({ ...renewalData, startDate: e.target.value })}
                       className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
+                  <p className="text-sm text-purple-200/70">
+                    Current expiry is inclusive. Renewal must start after {selectedMember.endDate}.
+                    The suggested date preserves paid time. Your entered date is used exactly;
+                    an overlap is rejected. Choosing a later date leaves a gap.
+                  </p>
                   <button
                     onClick={handleRenewMember}
                     disabled={loading}
