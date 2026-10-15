@@ -1,30 +1,26 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lock, Phone, Calendar, Award, Plus, Edit2, Trash2,
   RefreshCw, LogOut, CheckCircle, Loader2, Users,
-  ChevronDown, X, Save, AlertTriangle
+  ChevronDown, X, Save, AlertTriangle, Search
 } from 'lucide-react';
 import {
-  getAllMembers, verifyAdminPassword, isAdminLoggedIn,
-  clearAdminSession, addMember, renewMembership, deleteMember,
+  getAllMembers, loginOwner, logoutOwner, isAdminLoggedIn,
+  getSessionExpiresAt, SESSION_ENDED_EVENT, addMember, renewMembership, deleteMember,
   getApiUrl, updateMember
 } from '../api/gymApi';
 import type { Member, NewMemberData } from '../types/member';
 
 type ModalType = 'add' | 'edit' | 'renew' | 'delete' | null;
 
-const generateMemberId = (members: Member[]): string => {
-  if (members.length === 0) return '001';
-  const maxIdInt = Math.max(
-    ...members.map(m => parseInt(m.id, 10) || 0)
-  );
-  return String(maxIdInt + 1).padStart(3, '0');
-};
 
 export default function AdminPanel() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(isAdminLoggedIn);
+  const [ownerId, setOwnerId] = useState('');
+  const requestVersion = useRef(0);
+  const loginAttempt = useRef(0);
   const [password, setPassword] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,6 +29,9 @@ export default function AdminPanel() {
   const [modal, setModal] = useState<ModalType>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'expired'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Form state for add/edit
   const [formData, setFormData] = useState<Partial<NewMemberData>>({
@@ -51,61 +50,118 @@ export default function AdminPanel() {
     startDate: new Date().toISOString().split('T')[0],
   });
 
-  useEffect(() => {
-    if (isAdminLoggedIn()) {
-      setIsAuthenticated(true);
-      fetchMembers();
-    }
-  }, []);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    if (!getApiUrl()) {
-      setError('API URL not configured. Please set up first.');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const success = await verifyAdminPassword(password);
-      if (success) {
-        setIsAuthenticated(true);
-        fetchMembers();
-      } else {
-        setError('Invalid password');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    clearAdminSession();
+  const resetOwnerView = useCallback(() => {
+    requestVersion.current += 1;
+    loginAttempt.current += 1;
     setIsAuthenticated(false);
     setMembers([]);
+    setModal(null);
+    setSelectedMember(null);
+    setFormData({});
     setPassword('');
-  };
+    setSuccess(null);
+    setLoading(false);
+  }, []);
 
-  const fetchMembers = async () => {
+  const handleLogout = useCallback(async () => {
+    const pending = logoutOwner(); // Captures token, immediately clears browser session.
+    resetOwnerView();
+    const version = requestVersion.current;
+    const response = await pending;
+    if (version !== requestVersion.current) return;
+    if (!response.success && response.code !== 'UNAUTHORIZED') {
+      setError('Signed out locally. Server logout could not be confirmed; the session expires within 30 minutes.');
+    }
+  }, [resetOwnerView]);
+
+  const fetchMembers = useCallback(async () => {
+    const version = ++requestVersion.current;
     setLoading(true);
     setError(null);
-
     try {
       const response = await getAllMembers();
-      if (response.success && response.members) {
+      if (version !== requestVersion.current || !isAdminLoggedIn()) return;
+      if (response.success && Array.isArray(response.members)) {
         setMembers(response.members);
       } else {
         setError(response.error || 'Failed to fetch members');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch members');
+    } catch {
+      if (version === requestVersion.current) setError('Failed to fetch members');
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAdminLoggedIn()) void fetchMembers();
+    return () => {
+      requestVersion.current += 1;
+      loginAttempt.current += 1;
+    };
+  }, [fetchMembers]);
+
+  useEffect(() => {
+    const onSessionEnded = () => {
+      resetOwnerView();
+      setError('Session ended. Please log in again.');
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, onSessionEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onSessionEnded);
+  }, [resetOwnerView]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filter]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const expiresAt = getSessionExpiresAt();
+    if (!expiresAt) return;
+    // Activity cannot extend this absolute server-issued expiration.
+    const absoluteTimer = window.setTimeout(() => { void handleLogout(); }, Math.max(0, expiresAt - Date.now()));
+    let idleTimer: number;
+    const resetTimer = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => { void handleLogout(); }, 30 * 60 * 1000);
+    };
+    const events = ['mousemove', 'keydown', 'click', 'scroll'];
+    events.forEach(event => window.addEventListener(event, resetTimer));
+    resetTimer();
+    return () => {
+      window.clearTimeout(absoluteTimer);
+      window.clearTimeout(idleTimer);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+    };
+  }, [isAuthenticated, handleLogout]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!getApiUrl()) {
+      setError('API URL not configured. Please set up first.');
+      return;
+    }
+    const pending = loginOwner(ownerId.trim(), password);
+    const attempt = ++loginAttempt.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await pending;
+      if (attempt !== loginAttempt.current || response.code === 'LOGIN_CANCELLED') return;
+      setPassword('');
+      if (response.success) {
+        setIsAuthenticated(true);
+        await fetchMembers();
+      } else {
+        setError(response.error || 'Login failed');
+      }
+    } catch {
+      if (attempt === loginAttempt.current) setError('Login failed. Please try again.');
+    } finally {
+      if (attempt === loginAttempt.current) {
+        setPassword('');
+        setLoading(false);
+      }
     }
   };
 
@@ -159,11 +215,11 @@ export default function AdminPanel() {
     e?.preventDefault();
 
     // 🚨 VALIDATION START
-    const name = formData.name?.trim() || '';
-    const phone = (formData.phone || '').replace(/\D/g, '');
+    const name = String(formData.name || '').trim();
+    const phone = String(formData.phone || '').replace(/\D/g, '');
     const age = Number(formData.age);
     const weight = Number(formData.weight);
-    const startDate = formData.startDate?.trim() || '';
+    const startDate = String(formData.startDate || '').trim();
 
     if (!name) {
       setError('Name is required');
@@ -190,11 +246,7 @@ export default function AdminPanel() {
     setLoading(true);
     setError(null);
 
-    // Auto-generate ID just before payload creation (ignore formData.id)
-    const generatedId = generateMemberId(members);
-
     const newMemberData: NewMemberData = {
-      id: generatedId,
       name: name,
       phone: phone,
       age: age,
@@ -209,7 +261,7 @@ export default function AdminPanel() {
       if (response.success) {
         setSuccess('Member added successfully!');
         closeModal();
-        fetchMembers();
+        await fetchMembers();
         setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(response.error || 'Failed to add member');
@@ -231,11 +283,11 @@ export default function AdminPanel() {
     }
 
     // 🚨 VALIDATION START
-    const rawName = formData.name?.trim() || '';
-    const rawPhone = (formData.phone || '').replace(/\D/g, '');
+    const rawName = String(formData.name || '').trim();
+    const rawPhone = String(formData.phone || '').replace(/\D/g, '');
     const rawAge = Number(formData.age);
     const rawWeight = Number(formData.weight);
-    const rawStartDate = formData.startDate?.trim() || '';
+    const rawStartDate = String(formData.startDate || '').trim();
 
     if (!rawName) {
       setError('Name is required');
@@ -280,7 +332,7 @@ export default function AdminPanel() {
       if (response.success) {
         setSuccess('Member updated successfully!');
         closeModal();
-        fetchMembers();
+        await fetchMembers();
         setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(response.error || 'Failed to update member');
@@ -306,7 +358,7 @@ export default function AdminPanel() {
       if (response.success) {
         setSuccess(`Membership renewed! New end date: ${response.newEndDate}`);
         closeModal();
-        fetchMembers();
+        await fetchMembers();
         setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(response.error || 'Failed to renew membership');
@@ -328,7 +380,7 @@ export default function AdminPanel() {
       if (response.success) {
         setSuccess('Member deleted successfully!');
         closeModal();
-        fetchMembers();
+        await fetchMembers();
         setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(response.error || 'Failed to delete member');
@@ -341,11 +393,28 @@ export default function AdminPanel() {
   };
 
   const filteredMembers = members.filter(m => {
-    if (filter === 'all') return true;
-    if (filter === 'active') return m.status === 'Active';
-    if (filter === 'expired') return m.status === 'Expired';
-    return true;
+    // Status Filter
+    const matchesStatus =
+      filter === 'all' ||
+      (filter === 'active' && m.status === 'Active') ||
+      (filter === 'expired' && m.status === 'Expired');
+
+    // Search Filter
+    const search = searchTerm.toLowerCase();
+    const matchesSearch =
+      !search ||
+      m.id.toLowerCase().includes(search) ||
+      m.name.toLowerCase().includes(search) ||
+      m.phone.includes(search);
+
+    return matchesStatus && matchesSearch;
   });
+
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+  const paginatedMembers = filteredMembers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const stats = {
     total: members.length,
@@ -367,16 +436,36 @@ export default function AdminPanel() {
               <Lock className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Admin Login</h1>
-            <p className="text-purple-200/70 text-sm">Enter your password to continue</p>
+            <p className="text-purple-200/70 text-sm">Enter your Owner ID and password to continue</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
+              <label htmlFor="owner-id" className="block text-sm text-purple-300/70 mb-1">Owner ID</label>
               <input
+                id="owner-id"
+                type="text"
+                autoComplete="username"
+                value={ownerId}
+                onChange={(e) => setOwnerId(e.target.value)}
+                required
+                maxLength={128}
+                disabled={loading}
+                className="w-full px-4 py-4 bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="owner-password" className="block text-sm text-purple-300/70 mb-1">Password</label>
+              <input
+                id="owner-password"
                 type="password"
+                autoComplete="current-password"
+                required
+                minLength={12}
+                maxLength={72}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter admin password"
+                placeholder="Enter owner password"
                 className="w-full px-4 py-4 bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl text-white placeholder-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 disabled={loading}
               />
@@ -519,6 +608,28 @@ export default function AdminPanel() {
               Expired
             </button>
           </div>
+
+          <div className="flex-1 max-w-sm relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="w-4 h-4 text-purple-300/50" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by ID, Name, or Phone"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder-purple-300/30 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-purple-300/50 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={fetchMembers}
@@ -529,7 +640,8 @@ export default function AdminPanel() {
             </button>
             <button
               onClick={openAddModal}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all"
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all disabled:opacity-50"
             >
               <Plus className="w-5 h-5" />
               <span className="hidden sm:inline">Add Member</span>
@@ -558,13 +670,15 @@ export default function AdminPanel() {
             <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
           </div>
         ) : filteredMembers.length === 0 ? (
-          <div className="text-center py-20">
-            <Users className="w-12 h-12 text-purple-400/30 mx-auto mb-4" />
-            <p className="text-purple-300/50">No members found</p>
+          <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10">
+            <Users className="w-12 h-12 text-purple-400/20 mx-auto mb-4" />
+            <p className="text-white font-medium">No members found</p>
+            <p className="text-purple-300/50 text-sm mt-1">Try adjusting your search or filters.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredMembers.map((member, index) => (
+          <>
+            <div className="space-y-3">
+              {paginatedMembers.map((member, index) => (
               <motion.div
                 key={member.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -604,21 +718,24 @@ export default function AdminPanel() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => openRenewModal(member)}
-                      className="p-2 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-xl text-emerald-300 transition-all"
+                      disabled={loading}
+                      className="p-2 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-xl text-emerald-300 transition-all disabled:opacity-50"
                       title="Renew"
                     >
                       <RefreshCw className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => openEditModal(member)}
-                      className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-xl text-blue-300 transition-all"
+                      disabled={loading}
+                      className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-xl text-blue-300 transition-all disabled:opacity-50"
                       title="Edit"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => openDeleteModal(member)}
-                      className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-300 transition-all"
+                      disabled={loading}
+                      className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-xl text-red-300 transition-all disabled:opacity-50"
                       title="Delete"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -626,8 +743,32 @@ export default function AdminPanel() {
                   </div>
                 </div>
               </motion.div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex items-center justify-center gap-4">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1 || loading}
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-purple-300 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                >
+                  Previous
+                </button>
+                <div className="text-sm text-purple-300/60">
+                  Page <span className="text-white font-bold">{currentPage}</span> of {totalPages}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages || loading}
+                  className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-purple-300 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -727,7 +868,7 @@ export default function AdminPanel() {
                     <div className="relative">
                       <select
                         value={formData.membershipType || '3 Months'}
-                        onChange={(e) => setFormData({ ...formData, membershipType: e.target.value as any })}
+                        onChange={(e) => setFormData({ ...formData, membershipType: e.target.value as Member['membershipType'] })}
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                       >
                         <option value="3 Months">3 Months</option>
@@ -782,7 +923,7 @@ export default function AdminPanel() {
                     <div className="relative">
                       <select
                         value={renewalData.membershipType}
-                        onChange={(e) => setRenewalData({ ...renewalData, membershipType: e.target.value as any })}
+                        onChange={(e) => setRenewalData({ ...renewalData, membershipType: e.target.value as Member['membershipType'] })}
                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500"
                       >
                         <option value="3 Months">3 Months</option>
