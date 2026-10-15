@@ -1,3 +1,5 @@
+> Current membership rules with historical implementation notes. The no-publication statements below describe that development stage; the frontend is now live. See [current status](../README.md) and [the documentation index](README.md).
+
 # Membership correctness — Task 05
 
 Authentication and membership work is now integrated into `main`. The 15 October

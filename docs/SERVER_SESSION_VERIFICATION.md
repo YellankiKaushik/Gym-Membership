@@ -1,3 +1,5 @@
+> Installation-specific Google verification procedure. The owner reports manual testing; no new real Google session/rotation/expiry test is certified by this cleanup. Record private evidence separately and use [the maintenance index](README.md) for current release status.
+
 # Remaining real Google server-session verification
 
 Authentication and membership work is integrated into main. Auth.gs and Bcrypt.gs remain unchanged by the completion pass; frontend sessions now live only in page memory. Mocked authentication tests remain required, and passing them does not verify Google runtime behavior.

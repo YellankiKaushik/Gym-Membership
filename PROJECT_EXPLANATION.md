@@ -1,120 +1,205 @@
-> Historical architecture narrative. Some implementation claims below describe an older release. Use [README.md](README.md), [the release report](docs/RELEASE_REPORT.md), and [the acceptance checklist](docs/FINAL_ACCEPTANCE.md) for the current main implementation.
+# How FitZone currently works
 
-# 🚀 FitZone — Modern Gym Membership Orchestration System
+This explains the shipped implementation, checked against source on 16 October
+2026. The frontend is live on [Vercel](https://fitzone-gym-mu.vercel.app).
+[README](README.md) is the starting point; [the developer index](docs/README.md)
+maps code to maintenance tasks. The previous, partly aspirational explanation is
+preserved in [Git history at the redesign release](https://github.com/YellankiKaushik/Gym-Membership/blob/795153b8614c3dcd867db2cac2b28b63d6afde68/PROJECT_EXPLANATION.md).
 
----
+## 1. Explain it to a new developer
 
-## 1. Problem Framing (STRONG)
+The browser is the reception desk, Apps Script is the trusted clerk, and the
+private Sheet is the filing cabinet. The browser asks for a membership or submits
+an owner's action. Apps Script checks permission and input before touching the
+Sheet. The browser displays the result. Changing the page's appearance cannot
+replace the server's permission checks.
 
-In the fitness industry, small-to-medium-sized gyms often face a "technical debt" paradox: they need digital record-keeping and member tracking to scale, yet the overhead of maintaining a traditional SQL database, cloud hosting (AWS/Azure), and specialized backend developers is prohibitively expensive and complex. 
+Each gym owns an independent installation. Frontend branding and the public API
+address are build settings; owner credentials, Sheet selection and operational
+state stay in private Apps Script Properties. This is not a multi-tenant SaaS.
 
-Existing solutions are often either overpriced SaaS platforms that "lock in" data or archaic offline spreadsheets that lack real-time member-facing transparency and mobile accessibility. **FitZone** addresses this gap by transforming a ubiquitous tool—Google Sheets—into a high-performance, serverless database. It provides an enterprise-grade UI/UX that solves the problem of "invisible data," giving both admins and members a real-time window into membership status without the typical infrastructure burden.
+## 2. Frontend modules
 
----
+| Module | Responsibility |
+| --- | --- |
+| `src/App.tsx` | Header, root state navigation between member/owner views, footer and skip link |
+| `src/pages/MemberLookup.tsx` | Numeric ID form, read-only results, errors, race guard and gym gallery |
+| `src/pages/Adminpanel.tsx` | Owner state, authenticated fetching, CRUD handlers, search/filter/pagination and forms |
+| `src/components/OwnerLogin.tsx` | Login presentation and password visibility; receives handlers from the panel |
+| `src/components/DashboardSummary.tsx` | Four counts from existing membership utilities |
+| `src/components/MemberList.tsx` | Desktop rows, tablet action strips and mobile cards |
+| `src/components/MemberDialog.tsx` | Body portal, inert background, focus trap/restoration, scroll lock, busy-close protection |
+| `src/components/ui.tsx` | Shared Button, StatusBadge, Alert and EmptyState |
+| `src/components/WhatsAppReminder.tsx` | Validated prepared link, never an automatic sender |
+| `src/api/gymApi.ts` | Endpoint validation, request timeouts, memory-only session and API calls |
+| `src/config/gymConfig.ts` | One public branding source, bundled-photo fallback |
+| `src/utils/membership.ts` | Calendar validation, Kolkata today/status, renewal constraints, summary and filtering |
+| `src/utils/presentation.ts` | Readable dates only; no membership arithmetic |
+| `src/utils/whatsapp.ts` | Indian phone normalization and encoded reminder text |
+| `src/index.css`, `tailwind.config.js` | Shared design tokens, responsive layouts, interaction/focus/reduced-motion styles |
 
-## 2. System Vision
+Navigation is state-based at the root URL, not React Router. No customer API setup
+screen exists. There is no realtime subscription, optimistic member write or new
+authentication provider. CSS supplies transitions/loading motion; no animation
+package is needed by current components.
 
-FitZone is designed to be more than a simple CRUD tool; it is a **Lightweight Management Environment**. The vision is to provide a "Zero-Infrastructure" platform where the data remains in the owner's hands (Google Sheets) while the interaction layer feels like a boutique, custom-built application. It positions itself as a transitionary intelligence layer that bridge's the gap between manual entry and fully automated fitness ecosystems.
+## 3. Request flow
 
----
+```mermaid
+sequenceDiagram
+    participant UI as React browser
+    participant GAS as Apps Script
+    participant Props as Script Properties
+    participant Sheet as Google Sheet
+    UI->>GAS: POST login (Owner ID and password)
+    GAS->>Props: Read owner verifier; apply throttle
+    GAS-->>UI: Session token and absolute expiry
+    Note over UI: Keep token only in memory
+    UI->>GAS: POST protected action with token
+    GAS->>Props: Validate token digest, expiry and current owner configuration
+    GAS->>Sheet: Read or validate/write under ScriptLock
+    GAS-->>UI: JSON result
+    UI->>GAS: POST getAll after successful mutation
+    GAS-->>UI: Current member list
+```
 
-## 3. System Architecture (DEEP)
+Public lookup instead uses GET with `action=lookup` and a numeric ID. GET cannot
+dispatch owner actions. Owner calls use POST `text/plain` containing JSON, avoiding
+a JSON content-type preflight requirement for the Apps Script request. Google's
+ContentService redirects and browser CORS behavior still need real runtime checks.
 
-### 3.1 High-Level Design
+Read retries are bounded; mutations are not automatically retried because a
+network timeout does not establish whether Google committed the change. A 20-second
+abort deadline covers response-body consumption. Request-version checks prevent
+late responses from restoring a logged-out owner view or overwriting newer work.
 
-The system follows a **Decoupled Serverless Hybrid** architecture. 
-- **Frontend**: A high-performance React 19 SPA (Single Page Application) optimized for 60fps interactions using Framer Motion.
-- **Backend**: A "Database-as-a-Service" layer powered by Google Apps Script (GAS).
-- **Persistence**: Google Sheets serves as the core data engine.
+## 4. Authentication boundary
 
-This approach was chosen to maximize **Availability and Affordability**. By leveraging Google's global infrastructure, the system achieves near-zero downtime and zero hosting costs, while maintaining the flexibility of a modern JavaScript stack.
+[Auth.gs](backend/Auth.gs) reads case-sensitive `OWNER_ID` and a bcrypt cost-12–14
+verifier. The local [setup tool](scripts/create-owner-config.mjs) creates a random
+salt and cost-12 verifier; plaintext passwords are never stored in configuration.
+[Bcrypt.gs](backend/Bcrypt.gs) adapts the vendored synchronous library for Apps
+Script V8 without Node/browser timers. Its payload and license have integrity tests.
 
----
+Successful login creates a 30-minute, absolute-expiry session. Raw tokens remain
+only in browser memory. The server indexes records by a SHA-256 token digest,
+binds them to the current owner configuration, caps active sessions and rejects
+expired/revoked/rotated-credential sessions. Logout clears the client immediately
+and requests server revocation. If revocation cannot be confirmed, the UI explains
+the remaining expiry window. Reload requires login.
 
-### 3.2 Component Breakdown
+A shared installation-wide five-failure/15-minute throttle is serialized with
+ScriptLock. It is not a distributed abuse-defense system; legitimate owners can
+also encounter the lockout. Every protected action is validated server-side before
+Sheet access. Browser hiding, URL secrecy and client storage do not authorize writes.
 
-- **Orchestration Layer (`App.tsx`)**: Manages the application state and "Mode" switching (Setup vs. Member vs. Admin), ensuring a smooth onboarding flow for new gym installations.
-- **Data Integration Client (`gymApi.ts`)**: An abstracted fetch wrapper that serializes internal TypeScript models into HTTP payloads compatible with the GAS Webhook architecture.
-- **Administrative Command Center (`Adminpanel.tsx`)**: Reconciles complex state management for CRUD operations. It handles statistical aggregation (Active/Expired counts) and renewal business logic on the client side to reduce server round-trips.
-- **Public Lookup Portal (`MemberLookup.tsx`)**: A read-optimized interface designed for high-concurrency member check-ins, focusing on rapid status retrieval and visual feedback.
-- **Backend Script (GAS)**: Acts as the "Middleman" API, handling CORS, JSON parsing, and atomic row operations on the spreadsheet.
+## 5. Spreadsheet and member lifecycle
 
----
+The nine columns A:I hold ID, Name, Phone, Age, Weight, Plan, Start, End and Notified.
+`getMemberSheet_()` opens the privately configured Sheet ID/tab, with no active-Sheet
+fallback. Missing/inaccessible configuration produces a sanitized error.
 
-### 3.3 Execution / Runtime Layer
+- **Create:** validate fields/plan/date, reserve a canonical numeric ID in persistent
+  `MEMBER_ID_HIGH_WATER_MARK`, calculate expiry, write the nine cells and flush.
+- **Read:** validate records and return either the owner list or a strict public
+  allowlist. Duplicate canonical IDs fail closed rather than selecting a person.
+- **Edit:** compare the supplied row version. Contact-only changes retain expiry
+  and notification state; a changed plan/start recalculates the current term.
+- **Renew:** reject overlap with the current inclusive expiry; use the explicit
+  chosen start, calculate the new end and reset the notification flag.
+- **Delete:** compare row version, preserve the high-water mark, then remove the row.
+  Later creation never intentionally reuses the deleted ID.
 
-1. **Serialization**: The React frontend captures user intent (e.g., "Add Member").
-2. **Transportation**: Data is dispatched via HTTPS POST to a unique Google Apps Script deployment URL.
-3. **Execution**: The GAS engine parses the request, authenticates the payload, and executes the appropriate `SpreadsheetApp` service call.
-4. **Synchronization**: Once the Sheet is updated, the system returns a unified JSON response, which the frontend uses to optimistically update the local UI state.
+CRUD and scheduled notifications share a ScriptLock. This coordinates this script's
+executions, not human Sheet edits or other projects. Stale checks protect changes
+made before a write begins; operators must coordinate direct edits during writes.
+Lost phone digits, deleted historical IDs and ambiguous records cannot be invented.
 
----
+## 6. Dates, statuses and dashboard
 
-## 4. Intelligence / Processing Pipeline (VERY IMPORTANT)
+Plans are exactly 1 Month, 3 Months, 6 Months and 1 Year. Calendar arithmetic clamps
+month-end/leap boundaries. For example, 31 January 2026 plus one month ends on
+28 February 2026. End dates are inclusive and compared by Asia/Kolkata calendar day.
 
-The system operates on an **Input → Compute → Visualize** pipeline:
+A membership with at least zero days left is Active; a negative remainder is Expired.
+Expiring Soon is an Active subset with 0–7 days remaining. Thus Active and Expiring
+Soon counts overlap deliberately. Lists sort by expiry, then numeric ID. Search
+matches ID, name or phone; pages contain ten members.
 
-1. **Input**: Raw data entry (Name, Phone, Start Date, Plan Type).
-2. **Processing**: The system injects temporal logic—calculating expiration dates based on plan duration (3/6/12 months).
-3. **Reasoning**: The "Status Engine" compares the computed expiry date against `new Date()`. This logic lives both in the backend (for data integrity) and the frontend (for instantaneous UI feedback).
-4. **Decision**: Based on the delta, the system assigns a state: `Active` (Green), `Expiring Soon` (Yellow), or `Expired` (Red).
-5. **Output**: A premium, animated status card with a "Days Remaining" countdown.
+Renewal suggests the later of today and the day after the current end. A later
+explicit start creates a gap; overlap is rejected. The nine-column model stores
+only the latest term and derives status from expiry even before a future start.
+It is not a full history of paid terms, attendance or payments.
 
----
+The dashboard reads a snapshot and displays the last successful refresh time.
+Direct Sheet changes appear after Refresh. It does not promise live synchronization
+or automatically write a stored status into the Sheet each day.
 
-## 5. Decision Logic / Core Engine
+## 7. Public lookup privacy
 
-FitZone utilizes a **Temporal Heuristic Engine**:
-- **Rules-Based Expiry**: Instead of storing a static status, the system derives state dynamically. This ensures that a member's status is always accurate to the millisecond, even if the admin hasn't opened the sheet in weeks.
-- **Trade-offs**: We chose **Client-Side State Calculation** paired with **Backend Validation**. This provides the speed of local execution (UI feels "snappy") while maintaining the accuracy of a single source of truth in the spreadsheet.
+Canonical `1` and legacy `001` identify the same member. Public JSON contains ID,
+pseudonym (`Member #1`), plan, end date, status and days remaining. The public UI
+does not render names, phones, age, weight, start date or row-version fingerprints.
 
----
+Numeric IDs are predictable: enumeration can disclose limited membership facts.
+This is not member authentication or verified identity. No public lookup rate
+limiter is implemented. Sensitive deployments need an explicitly reviewed privacy
+solution before rollout; merely hiding the endpoint or masking a phone is inadequate.
 
-## 6. System Behavior Model
+## 8. Reminders are a separate workflow
 
-- **Reactive**: The system reacts instantly to admin modifications, pushing updates to the "Global Sheet" and reflecting changes across all devices.
-- **Proactive Boundary**: In the `Setup` phase, the system proactively audits the API configuration to prevent runtime failures before the user even enters the dashboard.
-- **Self-Correcting**: The Member Lookup tool automatically normalizes input (e.g., ID case-sensitivity) to ensure reliable search outcomes.
+An owner may manually schedule `runDailyExpiryNotifications` as a daily trigger.
+The parameterless wrapper drops Google's event argument and calls the existing
+Boolean-only sender in normal mode. Installation creates no trigger.
 
----
+Delivery requires `EXPIRY_EMAIL_ENABLED=true` and a valid private `ADMIN_EMAIL`.
+Only active terms expiring in 0–7 days qualify. A fingerprint of member ID/plan/start/end
+identifies the term. Private journal states record intent before Gmail, completion
+after submission, then Column I. Completed journal entries suppress duplicate sends
+even if the flag write fails. Failed submissions have bounded retry/backoff;
+pending/ambiguous outcomes require explicit reconciliation. Gmail submission is
+not inbox delivery, and exactly-once delivery across these services is not promised.
 
-## 7. Real-Time / Practical Value
+Synthetic preview never opens a Sheet or sends email. The configured-Sheet dry run
+is a separate read-only helper. [The notification reference](docs/NOTIFICATIONS.md)
+explains operational setup and recovery. WhatsApp uses an owner-clicked prepared
+link; there is no backend messaging action, API subscription or automatic Send.
 
-In a real-world gym environment, every second at the front desk counts. FitZone turns a "Search" into an "Insight." By providing a visual countdown of days remaining, it empowers trainers to initiate renewal conversations *before* the membership expires, directly improving gym revenue retention.
+## 9. Source, generated installation and deployments
 
----
+Maintain `backend/Code.gs`, `Auth.gs` and `Bcrypt.gs`. The generator combines them
+in fixed Bcrypt/Auth/Code order, retains licenses/provenance, and checks syntax and
+global declarations. The ready-to-paste file is
+[FitZone_Complete.gs](backend/generated/FitZone_Complete.gs). Choose that single
+file OR the original three files in a Google project, never both.
 
-## 8. Strengths (ENGINEERING LEVEL)
+Vercel serves `dist/` produced from the current source and public build settings.
+Main is linked to the existing production project; PR branches get previews when
+Vercel permits them. GitHub CI tests source/bundle/browser behavior before release.
+Pushing frontend code does not update Google's saved script/deployment version.
+Each gym follows [INSTALLATION.md](INSTALLATION.md) with independent private settings.
 
-- **Modularity**: Every page component is isolated; the `gymApi` can be swapped for a REST API/PostgreSQL backend in the future without changing a single line of UI code.
-- **Explainability**: Since the database is a Google Sheet, every transaction is human-readable and auditable in a simple row/column format.
-- **Zero-Maintenance Reliability**: No database migrations. No server patching. The underlying infrastructure is managed by Google.
-- **Responsive Fluidity**: Built for the mobile trainer roaming the gym floor.
+The legacy `gh-pages` branch and `docs/index.html`/`docs/assets` represent older
+static snapshots. They are preserved, not maintenance source or the current Vercel
+build. Optional `staging/` helpers belong only in a marked disposable project and
+are never included in the generated installer. Do not publish customer data or
+install local untracked draft backend files.
 
----
+## 10. Evidence versus future ideas
 
-## 9. Limitations (HONEST + STRATEGIC)
+The redesign release verified the production UI and a read-only backend lookup.
+The owner reports manual testing and a successful real Gmail test. The current
+source/bundle and browser suites use synthetic Google services; they do not prove
+private production credential rotation, real-time session expiry, Google quotas,
+concurrent human edits, scheduler timing, actual delivery or disaster recovery.
+Record such acceptance separately and privately for each installation.
 
-- **Authentication Depth**: Current session-based password auth is sufficient for small gyms but acts as a "Current Scope Constraint." Future iterations will incorporate OpenID Connect (OIDC).
-- **GAS Latency**: The 500ms–1.5s cold start of Apps Script is a limitation of the serverless provider, which we mitigate through **Optimistic UI Loading** and `Loader2` micro-animations.
-- **Write Concurrency**: Large-scale gyms (1k+ daily check-ins) would eventually outgrow the Google Sheets API limit, creating an opportunity for a Tier-2 PostgreSQL migration.
+No availability SLA, zero-cost guarantee, measured cold-start promise or commercial
+compliance certification is claimed. Browser/physical-device acceptance, backups,
+private property recovery, quota monitoring, privacy/retention decisions and
+operational ownership remain maintenance responsibilities. Existing small photos
+also limit gallery sharpness on large displays. Development-tool advisories are
+tracked in [the handoff](docs/README.md#maintenance-findings-16-october-2026).
 
----
-
-## 10. Future Evolution (STRATEGIC)
-
-- **AI-Predictive Retention**: Using membership history to predict which members are likely to churn based on visit frequency.
-- **Integrated Payment Rails**: Direct checkout links generated within the Admin Panel.
-- **IoT Integration**: Connecting the "Active" status trigger to a physical turnstile or door lock via an ESP32 webhook.
-
----
-
-## 11. Why This Stands Out (VERY IMPORTANT)
-
-Most "beginner" projects use a standard MERN stack that is overkill and expensive for small businesses. FitZone stands out because it exhibits **Pragmatic Architecture**. It solves a complex business problem using high-level engineering patterns (TypeScript, Framer Motion, Serverless) applied to a low-friction, high-accessibility data layer (Google Sheets). It is a "High-Tech/Low-Friction" masterclass.
-
----
-
-## 12. Final Closing (POWERFUL)
-
-FitZone isn't just a gym manager; it's a demonstration of how modern web technologies can democratize enterprise-grade tools for everyday businesses. It is a step toward **Frictionless Business Orchestration**, where technology serves as a bridge, not a barrier.
+AI retention, payments, turnstiles, new authentication providers and new databases
+were ideas in the old narrative, not shipped functionality or this maintenance task.

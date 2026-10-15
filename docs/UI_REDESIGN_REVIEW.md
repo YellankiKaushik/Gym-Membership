@@ -1,3 +1,5 @@
+> Historical design-review evidence. The approved PR #3 is now merged and its UI is live; the draft-only instructions below describe the review stage, not the current release state. See [current status](../README.md) and [maintenance handoff](README.md).
+
 # FitZone UI redesign review
 
 ## A. Completion

@@ -1,3 +1,5 @@
+> This is a disposable-installation test procedure, not the current release-status report. The frontend is already live; keep existing production settings and schedules unchanged. See [the developer index](README.md) for verified versus owner-reported evidence.
+
 # Final manual acceptance — disposable staging only
 
 Use main and synthetic records. No production Sheet/deployment changes, actual

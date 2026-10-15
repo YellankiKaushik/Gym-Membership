@@ -1,3 +1,5 @@
+> Historical development report (15 October 2026). Vercel production was subsequently published through PR #3. For current status and maintenance, start with [README](../README.md) and [the developer index](README.md). The original evidence and counts below are preserved.
+
 # FitZone development completion report — 15 October 2026
 
 ## 1. Development completion

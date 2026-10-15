@@ -1,4 +1,6 @@
-# Owner authentication setup (development implementation; not deployed)
+> Current setup reference with historical staging notes. The frontend is live; do not interpret older “future cutover” wording as permission to modify an existing Google installation. See [current release/evidence boundaries](../docs/README.md).
+
+# Owner authentication setup
 
 This change preserves React, Apps Script, Sheets, and one installation per gym.
 The uploaded `Code.gs` is the baseline, not proof of what production currently runs.
