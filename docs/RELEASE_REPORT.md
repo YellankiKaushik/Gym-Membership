@@ -170,7 +170,7 @@ New/updated notification configuration:
 
 No trigger is required for CRUD, dashboard or WhatsApp. No trigger was created.
 After separate real-send authorization/testing, an owner may manually create one
-daily time-based trigger for checkMembershipExpiries, not for a preview function.
+daily time-based trigger for `runDailyExpiryNotifications`; preview functions are never scheduled.
 Keep production schedules unchanged. [Notification policy](NOTIFICATIONS.md)
 documents failed attempts, journal storage, reconciliation and exactly-once limits.
 

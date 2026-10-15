@@ -68,7 +68,7 @@ test('Windows and Unix source line endings generate identical installation bytes
 test('single script retains unique top-level entry points and rejects duplicate global declarations', () => {
   const names = checkBundleGlobals(bundle);
   for (const name of ['doGet', 'doPost', 'loginOwner_', 'validateOwnerSession_', 'addMember',
-    'updateMember', 'renewMember', 'deleteMember', 'checkMembershipExpiries',
+    'updateMember', 'renewMember', 'deleteMember', 'checkMembershipExpiries', 'runDailyExpiryNotifications',
     'previewSyntheticExpiryNotifications', 'resolveExpiryNotification', 'OWNER_AUTH', 'CONFIG']) assert.ok(names.has(name));
   assert.throws(() => checkBundleGlobals(bundle + '\nfunction doGet() {}'), /Duplicate Apps Script global: doGet/);
   assert.throws(() => checkBundleGlobals(bundle + '\nconst CONFIG = {};'), /already been declared/);

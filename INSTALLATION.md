@@ -96,6 +96,15 @@ to enable it, configure their private `ADMIN_EMAIL` and follow
 [the notification setup instructions](docs/NOTIFICATIONS.md). Initial setup
 creates no email trigger and sends no messages.
 
+After the owner has confirmed a real email delivery test and chosen to enable
+daily reminders, set `EXPIRY_EMAIL_ENABLED` to `true`. Confirm the project time
+zone is **Asia/Kolkata**, open **Triggers** (clock icon) → **Add Trigger**, and
+select **runDailyExpiryNotifications → Head → Time-driven → Day timer**. Choose
+a daily time window and save. Keep only one daily expiry trigger; replace an old
+one if needed. Do not select `checkMembershipExpiries` or a preview function.
+The daily handler safely ignores Google's trigger event. These are manual steps;
+installing the code does not create a trigger.
+
 ## 5. Deploy the Web App
 
 In Apps Script, choose **Deploy → New deployment**. Select **Web app** as the type.

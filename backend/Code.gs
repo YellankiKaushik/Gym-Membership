@@ -412,6 +412,11 @@ function planExpiryNotifications_(rows, saved, today, now) {
   return { preview: preview, reviewRequired: reviewRequired, invalidRows: invalidRows };
 }
 
+// Time-driven triggers pass an event; keep it out of the boolean dry-run API.
+function runDailyExpiryNotifications() {
+  return checkMembershipExpiries(false);
+}
+
 function checkMembershipExpiries(testMode = false) {
   if (testMode !== true && testMode !== false) throw new Error('Use a boolean dry-run flag.');
   const properties = PropertiesService.getScriptProperties();

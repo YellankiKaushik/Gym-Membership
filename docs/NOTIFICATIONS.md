@@ -9,6 +9,11 @@ excludes already expired memberships and dates more than seven days away.
 Delivery is off unless `EXPIRY_EMAIL_ENABLED` is exactly `true`. A valid
 `ADMIN_EMAIL` is required. No trigger is created by the application.
 
+Use **`runDailyExpiryNotifications`** as the daily trigger handler. This
+parameterless entry point ignores the event supplied by Apps Script and calls
+`checkMembershipExpiries(false)`. The sender's Boolean-only dry-run API and all
+delivery safeguards remain unchanged.
+
 ## Safe dry runs
 
 Run **`previewSyntheticExpiryNotifications()`** in the Apps Script editor for
@@ -56,18 +61,35 @@ normal operations; before Script Properties quota is approached, export a truste
 backup and archive deleted-member journal entries privately. Never remove active
 term entries just to retry, and never change the member ID high-water mark.
 
-## Later staging setup (not performed)
+## Daily scheduling (manual setup)
 
-In the disposable project only, retain the authentication/spreadsheet properties,
-ensure the historical member counter is at least **3**, and optionally set
-`GYM_NAME`/`GYM_LOCATION` for email branding. Run the synthetic preview first.
-For a separately authorized delivery test, set a controlled test `ADMIN_EMAIL`,
-authorize Gmail, set `EXPIRY_EMAIL_ENABLED=true`, and manually create a daily
-time-based trigger for `checkMembershipExpiries`, using project timezone
-Asia/Kolkata. Do not create a trigger for a preview function. Leave delivery
-disabled and triggers absent during the current manual acceptance work.
+After installing the updated backend in the gym's Apps Script project, run the
+synthetic preview first. Keep existing authentication/spreadsheet properties,
+member counters and notification journal records. The existing disposable test
+gym's counter must remain at least **3**, or its higher historical value.
+`GYM_NAME`/`GYM_LOCATION` optionally customize email branding.
+
+When the owner is ready for real delivery, configure their private `ADMIN_EMAIL`,
+authorize Gmail and set `EXPIRY_EMAIL_ENABLED` to `true`. After confirming the
+owner's delivery test, create the schedule manually:
+
+1. In **Project Settings**, confirm the time zone is **Asia/Kolkata**.
+2. Open **Triggers** (the clock icon), then **Add Trigger**.
+3. Select **runDailyExpiryNotifications** as the function and **Head** as the deployment.
+4. Choose **Time-driven → Day timer**, then choose the daily time window and save.
+5. Check **Executions** after the first scheduled run for failures.
+
+Keep just one daily expiry trigger. If an old trigger selects
+`checkMembershipExpiries`, manually replace it with the handler above. The sender
+accepts only a Boolean flag, so passing a trigger event directly to it fails.
+Do not schedule a preview function. Google runs daily triggers within a time
+window; they are not guaranteed to run at an exact minute. Setting
+`EXPIRY_EMAIL_ENABLED=false` disables delivery even while the trigger exists.
+Initial installation/testing leaves delivery disabled and creates no trigger.
 
 Implementation references: [Google ScriptLock and flush](https://developers.google.com/apps-script/reference/lock/lock),
-[Gmail submission API](https://developers.google.com/apps-script/reference/gmail/gmail-app#sendEmail(String,String,String)).
+[Gmail submission API](https://developers.google.com/apps-script/reference/gmail/gmail-app#sendEmail(String,String,String)),
+[trigger event arguments](https://developers.google.com/apps-script/guides/triggers/events),
+[time-driven triggers](https://developers.google.com/apps-script/guides/triggers/installable#time-driven_triggers).
 Tests use mocked Google services; they do not verify Google's real scheduler,
 OAuth, locking, quotas, delivery, or eventual persistence.

@@ -1353,7 +1353,7 @@ function validateOwnerSession_(token) {
 ;
 // ===== END backend/Auth.gs =====
 
-// ===== BEGIN backend/Code.gs | SHA-256 c683dd9d87c41082ee586aff7c8798b22dda715f5036d3be76ec3e369c0e597d =====
+// ===== BEGIN backend/Code.gs | SHA-256 fddb356c8a7ef4543152d7e5ff1e35cb81cef5d18bd8b1106778f053e9304de8 =====
 /**
  * Gym Membership Management System
  * Uploaded nine-column baseline with owner authentication (not yet deployed).
@@ -1766,6 +1766,11 @@ function planExpiryNotifications_(rows, saved, today, now) {
   }
   preview.sort(function (a, b) { return a.end.localeCompare(b.end) || Number(a.id) - Number(b.id); });
   return { preview: preview, reviewRequired: reviewRequired, invalidRows: invalidRows };
+}
+
+// Time-driven triggers pass an event; keep it out of the boolean dry-run API.
+function runDailyExpiryNotifications() {
+  return checkMembershipExpiries(false);
 }
 
 function checkMembershipExpiries(testMode = false) {

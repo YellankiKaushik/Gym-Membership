@@ -115,7 +115,9 @@ See [private authentication setup](backend/OWNER_AUTH_SETUP.md),
 `checkMembershipExpiries()` is off unless `EXPIRY_EMAIL_ENABLED=true`. It requires
 a valid private `ADMIN_EMAIL`; optional `GYM_NAME`/`GYM_LOCATION` customize email
 branding. No trigger is installed automatically. Keep delivery disabled during
-the current acceptance pass.
+initial setup. For daily delivery, manually schedule **`runDailyExpiryNotifications`**
+as described in [the notification guide](docs/NOTIFICATIONS.md#daily-scheduling-manual-setup).
+It ignores Apps Script's event argument and calls the sender in normal mode.
 
 Active memberships expiring in 0–7 days qualify; expired memberships do not.
 Per-member/term fingerprints and attempt/completion records live in Script

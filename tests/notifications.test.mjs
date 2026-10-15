@@ -2,6 +2,65 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBackend } from './helpers/apps-script.mjs';
 
+const timeDrivenEvent = Object.freeze({
+  triggerUid: 'synthetic-daily-trigger', authMode: 'FULL', timezone: 'Asia/Kolkata',
+  year: 2026, month: 10, 'day-of-month': 14, hour: 9, minute: 0, second: 0,
+});
+
+test('parameterless daily handler ignores the trigger event and explicitly forwards normal mode and its result', () => {
+  const app = createBackend();
+  const calls = [];
+  const result = { success: true, sent: 0 };
+  app.context.checkMembershipExpiries = (...args) => { calls.push(args); return result; };
+  assert.equal(app.context.runDailyExpiryNotifications.length, 0);
+  assert.equal(app.context.runDailyExpiryNotifications(timeDrivenEvent), result);
+  assert.equal(app.context.runDailyExpiryNotifications(), result);
+  assert.deepEqual(calls, [[false], [false]]);
+});
+
+test('boolean-only sender still rejects trigger events without side effects', () => {
+  const app = createBackend();
+  const properties = JSON.stringify([...app.properties]);
+  assert.throws(() => app.context.checkMembershipExpiries(timeDrivenEvent), /boolean dry-run flag/);
+  assert.equal(app.state.sheetReads, 0);
+  assert.equal(app.state.sheetWrites, 0);
+  assert.equal(app.state.emails.length, 0);
+  assert.equal(JSON.stringify([...app.properties]), properties);
+});
+
+test('daily trigger events retain locking, pending/sent journaling and duplicate prevention', () => {
+  let app;
+  app = createBackend({}, { onEmail: () => {
+    assert.equal(app.state.lockHeld, true);
+    assert.equal(app.rows[1][8], false);
+    assert.equal(JSON.parse(app.properties.get('EXPIRY_NOTICE_1')).status, 'pending');
+  } });
+  assert.equal(app.context.runDailyExpiryNotifications(timeDrivenEvent).sent, 1);
+  assert.equal(app.state.lockHeld, false);
+  assert.equal(app.rows[1][8], true);
+  assert.equal(JSON.parse(app.properties.get('EXPIRY_NOTICE_1')).status, 'sent');
+  app.rows[1][8] = false; // The journal must still prevent a duplicate.
+  assert.equal(app.context.runDailyExpiryNotifications(timeDrivenEvent).sent, 0);
+  assert.equal(app.state.emails.length, 1);
+});
+
+test('daily trigger events honor the email-disable switch without opening the Sheet or changing state', () => {
+  for (const enabled of [undefined, 'false']) {
+    const app = createBackend({ EXPIRY_EMAIL_ENABLED: enabled });
+    const properties = JSON.stringify([...app.properties]);
+    const rows = JSON.stringify(app.rows);
+    const result = app.context.runDailyExpiryNotifications(timeDrivenEvent);
+    assert.equal(result.disabled, true);
+    assert.equal(result.sent, 0);
+    assert.equal(app.state.sheetReads, 0);
+    assert.equal(app.state.sheetWrites, 0);
+    assert.equal(app.state.spreadsheetOpens.length, 0);
+    assert.equal(app.state.emails.length, 0);
+    assert.equal(JSON.stringify([...app.properties]), properties);
+    assert.equal(JSON.stringify(app.rows), rows);
+  }
+});
+
 function term(app, days, notified = false) {
   const today = app.context.todayDate_();
   const end = new Date(Date.parse(today + 'T00:00:00Z') + days * 86400000).toISOString().slice(0, 10);
@@ -105,14 +164,14 @@ test('crash after Gmail but before completion journaling requires explicit recon
 test('two simulated scheduled executions and CRUD cannot interleave under ScriptLock', () => {
   let second, competing, mutation;
   const first = createBackend({}, { onEmail: () => {
-    competing = second.context.checkMembershipExpiries();
+    competing = second.context.runDailyExpiryNotifications(timeDrivenEvent);
     mutation = second.context.deleteMember('1');
   } });
   second = createBackend({}, { shared: first });
-  assert.equal(first.context.checkMembershipExpiries().sent, 1);
+  assert.equal(first.context.runDailyExpiryNotifications(timeDrivenEvent).sent, 1);
   assert.equal(competing.code, 'MEMBER_BUSY');
   assert.equal(mutation.code, 'MEMBER_BUSY');
-  assert.equal(second.context.checkMembershipExpiries().sent, 0);
+  assert.equal(second.context.runDailyExpiryNotifications(timeDrivenEvent).sent, 0);
   assert.equal(first.state.emails.length, 1);
 });
 
