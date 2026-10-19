@@ -42,7 +42,7 @@ for (const [key, value] of [
   ['OWNER_PASSWORD_HASH', verifier.replace('$12$', '$04$')],
   ['OWNER_PASSWORD_HASH', verifier.replace('$12$', '$31$')],
 ]) {
-  test('configuration fails closed for ' + key + ' = ' + JSON.stringify(value), () => {
+  test('configuration fails closed for ' + key + ' (' + (typeof value === 'string' && value.startsWith('$2') ? 'unsupported bcrypt cost' : JSON.stringify(value)) + ')', () => {
     const app = createBackend({ [key]: value });
     assert.equal(app.login().code, 'AUTH_UNAVAILABLE');
     assert.equal(app.post({ action: 'getAll', password: null }).code, 'UNAUTHORIZED');
@@ -103,9 +103,9 @@ test('credential rotation and missing configuration invalidate existing sessions
   }
 });
 
-test('five failed logins throttle subsequent attempts until the window expires', () => {
+test('five valid-shaped failed logins bound bcrypt work until the window expires', () => {
   const app = createBackend();
-  for (let i = 0; i < 5; i++) assert.equal(app.post({ action: 'login', ownerId, password: null }).code, 'INVALID_CREDENTIALS');
+  for (let i = 0; i < 5; i++) assert.equal(app.post({ action: 'login', ownerId, password: 'Wrong-synthetic-password!' }).code, 'INVALID_CREDENTIALS');
   assert.equal(app.login().code, 'RATE_LIMITED');
   assert.equal(app.state.lockHeld, false);
   app.advance(15 * 60 * 1000);

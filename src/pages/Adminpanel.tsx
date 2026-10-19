@@ -29,6 +29,8 @@ import {
   deleteMember,
   getApiUrl,
   updateMember,
+  getOwnerSecurityPolicy,
+  reauthenticateOwner,
 } from "../api/gymApi";
 import type { Member, NewMemberData } from "../types/member";
 import MemberDialog from "../components/MemberDialog";
@@ -52,6 +54,7 @@ export default function AdminPanel() {
   const requestVersion = useRef(0);
   const loginAttempt = useRef(0);
   const [password, setPassword] = useState("");
+  const [confirmationPassword, setConfirmationPassword] = useState("");
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,6 +93,7 @@ export default function AdminPanel() {
     setSelectedMember(null);
     setFormData({});
     setPassword("");
+    setConfirmationPassword("");
     setSuccess(null);
     setLoading(false);
   }, []);
@@ -273,6 +277,7 @@ export default function AdminPanel() {
     setModal(null);
     setSelectedMember(null);
     setError(null);
+    setConfirmationPassword("");
   }, []);
 
   const handleAddMember = async (e?: React.MouseEvent<HTMLButtonElement>) => {
@@ -467,9 +472,21 @@ export default function AdminPanel() {
     setError(null);
 
     try {
+      let stepUpToken: string | undefined;
+      if (getOwnerSecurityPolicy()?.stepUpRequired) {
+        const confirmation = await reauthenticateOwner(confirmationPassword, 'deleteMember', selectedMember.id, selectedMember.version);
+        setConfirmationPassword("");
+        if (version !== requestVersion.current || !isAdminLoggedIn()) return;
+        if (!confirmation.success || !confirmation.stepUpToken) {
+          setError(confirmation.error || "Fresh sign-in is required before deletion.");
+          return;
+        }
+        stepUpToken = confirmation.stepUpToken;
+      }
       const response = await deleteMember(
         selectedMember.id,
         selectedMember.version,
+        stepUpToken,
       );
       if (version !== requestVersion.current || !isAdminLoggedIn()) return;
       if (response.success) {
@@ -1021,11 +1038,18 @@ export default function AdminPanel() {
                 <AlertTriangle className="w-12 h-12 text-danger mx-auto mb-3" />
                 <p className="font-semibold">Are you sure?</p>
                 <p className="text-secondary text-sm">
-                  This will permanently delete{" "}
+                  {getOwnerSecurityPolicy()?.historyEnabled ? "This will archive and remove " : "This will permanently delete "}
                   <strong>{selectedMember.name}</strong> ({selectedMember.id})
                   from the system.
                 </p>
               </div>
+              {getOwnerSecurityPolicy()?.stepUpRequired && (
+                <div>
+                  <label htmlFor="delete-confirm-password">Confirm your password</label>
+                  <input id="delete-confirm-password" type="password" className="field" autoComplete="current-password"
+                    value={confirmationPassword} onChange={event => setConfirmationPassword(event.target.value)} disabled={loading} maxLength={72} />
+                </div>
+              )}
               <div className="dialog-actions">
                 <button
                   onClick={closeModal}

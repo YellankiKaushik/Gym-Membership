@@ -2,7 +2,27 @@
 
 Prepared **19 October 2026** against `main` at `89472587fa592ad96aaecd8807366d5f65ddea60`. Evidence, severity and limitations are in [the security audit](SECURITY_AUDIT_REPORT.md).
 
-**Planning only: no implementation, account changes, deployments or migration are authorized in Phase 1.** All items below are proposed for a later user-approved phase. Preserve membership behavior, A:I schema, persistent IDs, four plans, inclusive renewal calculations, notification deduplication, synthetic preview and current private settings unless an explicit approved change requires a migration.
+**Phase 2 local implementation update, 19 October 2026:** the user authorized repository implementation on `security/hardening-phase2`. Safe local changes have been implemented; account changes, production deployments and gated migrations remain unapproved. The original phased plan below is retained as the baseline. Current evidence and setup gates are in [the implementation report](SECURITY_IMPLEMENTATION_REPORT.md), [test results](SECURITY_TEST_RESULTS.md) and [production checklist](SECURITY_PRODUCTION_CHECKLIST.md).
+
+## Phase 2 finding status
+
+Statuses describe the stated layer only. **None is PRODUCTION VERIFIED or TESTED IN SYNTHETIC STAGING on real Google infrastructure.** Local VM/service doubles, signed synthetic identity tests and intercepted browser tests are explicitly local, not an actual Google staging deployment.
+
+| Finding | Current status | Implemented evidence / remaining gate |
+| --- | --- | --- |
+| F01 | PARTIALLY MITIGATED | Revocable expiring capabilities, minimal DTO, POST-only token and no numeric fallback in secure mode tested locally; legacy remains default until approved member migration |
+| F02 | PARTIALLY MITIGATED | Malformed input no longer acquires lock/runs bcrypt/spends failure budget; valid-shaped targeted lockout and platform quota DoS remain unresolved |
+| F03 | PARTIALLY MITIGATED | Fixed public work budget, per-code budget, row cap and ID-column-plus-one-row reads tested; direct Apps Script execution/Properties abuse still needs trusted edge design and measured staging capacity |
+| F04 | BLOCKED BY EXTERNAL CONFIGURATION | Pinned CodeQL, Gitleaks, runtime audit gate and Dependabot configured locally; main rulesets/reviewer/release gates require administrator action and actual CI execution |
+| F05 | PARTIALLY MITIGATED | Gated archive/history, CAS, operation deduplication, interrupted-write reconciliation and synthetic encrypted restore tests implemented; independent real backup/restore remains unverified, so migration stays off |
+| F06 | BLOCKED BY EXTERNAL CONFIGURATION | Real asymmetric JWT/assurance verification, installation-bound HMAC bridge, nonce/replay controls and fresh-action interfaces tested locally; provider enrollment, SDK/UI wiring and recovery are not complete; production password login unchanged |
+| F07 | FIXED IN LOCAL CODE | Enforcing anti-framing/basic headers and broader Report-Only CSP plus tests; no Vercel deployment or live-header verification performed |
+| F08 | PARTIALLY MITIGATED | Allowlisted redacted JSON events for auth/read/CRUD/recovery/config changes; independently protected log retention, staff attribution and alerts remain external work |
+| F09 | PARTIALLY MITIGATED | Runtime gate and dependency monitoring configured; runtime audit zero, full audit still nine development entries/two advisories; no unproven major upgrade forced |
+| F10 | BLOCKED BY EXTERNAL CONFIGURATION | Fail-closed preview endpoint/fingerprint guards and preview warning tested; read-only Vercel recheck still shows shared binding; no push permitted until actual isolation is verified |
+| F11 | BLOCKED BY EXTERNAL CONFIGURATION | Reviewed redacted Gitleaks history/current scans pass; historical nonsecret URLs remain; private old-deployment/permission inventory and retirement need owner action; no history rewrite |
+
+The confirmed malformed-request defect within F02 is fixed in source; the broader finding remains partial. F07's local status does not mean live hosting headers changed. Backup/provider/access attestations cannot be satisfied by merely setting a flag or passing a unit test. No critical finding was added or declared production-resolved.
 
 Priorities: **P0** before extending production use or onboarding more gyms; **P1** next security release; **P2** subsequent improvement after measurement. Complexity: Small (localized), Medium (cross-component), Large (new identity/infrastructure or migration). The order within a phase reflects dependencies rather than a promise of completion time.
 

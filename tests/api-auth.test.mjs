@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { webcrypto, randomBytes } from 'node:crypto';
+import { SignJWT, generateKeyPair, exportJWK, createLocalJWKSet } from 'jose';
+import { verifyOwnerIdentity } from '../server/owner-identity.ts';
 import { createBackend, ownerId, password } from './helpers/apps-script.mjs';
 
 const source = ts.transpileModule(readFileSync(new URL('../src/api/gymApi.ts', import.meta.url), 'utf8'), {
@@ -10,8 +13,8 @@ const source = ts.transpileModule(readFileSync(new URL('../src/api/gymApi.ts', i
 }).outputText;
 const endpoint = 'https://script.google.com/macros/s/SYNTHETIC_TEST_ONLY/exec';
 
-function createClient(timers = { setTimeout, clearTimeout }) {
-  const backend = createBackend();
+function createClient(timers = { setTimeout, clearTimeout }, properties = {}) {
+  const backend = createBackend(properties);
   const local = new Map([['gymApiUrl', endpoint]]);
   const session = new Map();
   const storage = map => ({
@@ -23,7 +26,7 @@ function createClient(timers = { setTimeout, clearTimeout }) {
   const issuedSessions = [];
   let fetchOverride;
   const context = vm.createContext({
-    exports: {}, Date: backend.Date, URL, Error, TypeError, Event, AbortController,
+    exports: {}, Date: backend.Date, URL, Error, TypeError, Event, AbortController, crypto: webcrypto,
     window: new EventTarget(), localStorage: storage(local), sessionStorage: storage(session),
     setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
     fetch: async (url, options) => {
@@ -42,6 +45,84 @@ function createClient(timers = { setTimeout, clearTimeout }) {
     setFetch: callback => { fetchOverride = callback; },
   };
 }
+
+test('an ambiguous create keeps its operation ID for a safe explicit retry with history enabled', async () => {
+  const client = createClient(undefined, { MEMBER_HISTORY_ENABLED: 'true', MEMBER_HISTORY_SPREADSHEET_ID: 'SYNTHETIC-HISTORY-BOOK',
+    MEMBER_HISTORY_SHEET_NAME: 'History', BACKUP_RESTORE_REFERENCE: 'SYNTHETIC_RESTORE_01', BACKUP_RESTORE_VERIFIED_AT: '2026-10-14T06:30:00.000Z' });
+  await client.api.loginOwner(ownerId, password);
+  const member = { name: 'STAGING ONLY Network Retry', phone: '0000000001', age: 25, weight: 65, membershipType: '1 Month', startDate: '2026-10-14' };
+  client.setFetch(async (url, options) => { client.backend.post(JSON.parse(options.body)); throw new TypeError('Synthetic lost response'); });
+  assert.equal((await client.api.addMember(member)).code, 'NETWORK_ERROR');
+  client.setFetch(undefined);
+  assert.equal((await client.api.addMember(member)).memberId, '2');
+  const operations = client.requests.map(r => JSON.parse(r.options.body)).filter(r => r.action === 'addMember');
+  assert.equal(operations.length, 2);
+  assert.equal(operations[0].operationId, operations[1].operationId);
+  assert.equal(client.backend.rows.length, 3);
+  assert.equal(client.backend.historyRows.length, 2);
+});
+
+test('managed frontend adapters obtain real signed proof and fresh action-bound confirmation without storing credentials', async () => {
+  const sharedKey = randomBytes(32).toString('hex');
+  const properties = { OWNER_AUTH_MODE: 'managed', GYM_INSTALLATION_ID: 'SYNTHETIC_CLIENT_GYM_01', OWNER_IDENTITY_SUBJECT: 'synthetic-owner-subject', OWNER_IDENTITY_SHARED_KEY: sharedKey };
+  const client = createClient(undefined, properties);
+  const env = { ...properties, OWNER_IDENTITY_ENABLED: 'true', OWNER_IDENTITY_ISSUER: 'https://identity.example.invalid/', OWNER_IDENTITY_JWKS_URL: 'https://identity.example.invalid/jwks',
+    OWNER_IDENTITY_AUDIENCE: 'synthetic-client', OWNER_IDENTITY_REQUIRED_ACR: 'urn:synthetic:phishing-resistant', OWNER_IDENTITY_REQUIRED_AMR: 'hwk' };
+  const { publicKey, privateKey } = await generateKeyPair('ES256');
+  const getKey = createLocalJWKSet({ keys: [{ ...await exportJWK(publicKey), kid: 'synthetic-key', alg: 'ES256' }] });
+  const obtainIdToken = async ({ nonce, maxAge }) => {
+    assert.equal(maxAge, 0);
+    const now = Math.floor(client.backend.Date.now() / 1000);
+    return new SignJWT({ iss: env.OWNER_IDENTITY_ISSUER, sub: env.OWNER_IDENTITY_SUBJECT, aud: env.OWNER_IDENTITY_AUDIENCE,
+      nonce, iat: now, exp: now + 120, auth_time: now, acr: env.OWNER_IDENTITY_REQUIRED_ACR, amr: ['hwk'] })
+      .setProtectedHeader({ alg: 'ES256', kid: 'synthetic-key' }).sign(privateKey);
+  };
+  client.setFetch(async (url, options) => {
+    const data = JSON.parse(options.body);
+    const result = url === '/api/owner-identity' ? { success: true, proof: await verifyOwnerIdentity(data.idToken, data.challenge, env, { getKey, now: client.backend.Date.now() }) } : client.backend.post(data);
+    return { ok: true, json: async () => result };
+  });
+  assert.equal((await client.api.loginOwnerWithIdentity(obtainIdToken)).success, true);
+  assert.equal(client.api.isAdminLoggedIn(), true);
+  const current = (await client.api.getAllMembers()).members[0];
+  const proof = await client.api.reauthenticateOwnerWithIdentity(obtainIdToken, 'deleteMember', '1', current.version);
+  assert.ok(proof.stepUpToken);
+  assert.equal((await client.api.deleteMember('1', current.version, proof.stepUpToken)).success, true);
+  assert.equal(client.backend.rows.length, 1);
+  assert.ok(client.requests.some(request => request.url === '/api/owner-identity'));
+  assert.ok(!JSON.stringify([...client.local, ...client.session]).includes(sharedKey));
+  assert.equal(client.session.size, 0);
+});
+
+test('owner capability client interfaces require a session and fresh confirmation without exporting that session', async () => {
+  const client = createClient(undefined, { MEMBER_LOOKUP_MODE: 'capability', OWNER_STEP_UP_REQUIRED: 'true' });
+  assert.equal((await client.api.issueMemberLookup('1')).code, 'UNAUTHORIZED');
+  await client.api.loginOwner(ownerId, password);
+  const proof = await client.api.reauthenticateOwner(password, 'issueMemberLookup', '1');
+  const issued = await client.api.issueMemberLookup('1', 1, proof.stepUpToken);
+  assert.equal(issued.success, true);
+  assert.equal(client.backend.post({ action: 'lookupMember', lookupToken: issued.lookupToken }).success, true);
+  const revocation = await client.api.reauthenticateOwner(password, 'revokeMemberLookup', '1');
+  assert.equal((await client.api.revokeMemberLookup('1', revocation.stepUpToken)).success, true);
+  assert.equal(client.backend.post({ action: 'lookupMember', lookupToken: issued.lookupToken }).success, false);
+  assert.ok(!JSON.stringify([...client.local, ...client.session]).includes(issued.lookupToken));
+});
+
+test('owner recovery client interfaces restore archived records with the matching fresh confirmation', async () => {
+  const client = createClient(undefined, { MEMBER_HISTORY_ENABLED: 'true', OWNER_STEP_UP_REQUIRED: 'true', EXPIRY_EMAIL_ENABLED: 'false',
+    MEMBER_HISTORY_SPREADSHEET_ID: 'SYNTHETIC-HISTORY-BOOK', MEMBER_HISTORY_SHEET_NAME: 'History',
+    BACKUP_RESTORE_REFERENCE: 'SYNTHETIC_RESTORE_01', BACKUP_RESTORE_VERIFIED_AT: '2026-10-14T06:30:00.000Z' });
+  await client.api.loginOwner(ownerId, password);
+  const current = (await client.api.getAllMembers()).members[0];
+  const confirmDelete = await client.api.reauthenticateOwner(password, 'deleteMember', '1', current.version);
+  assert.equal((await client.api.deleteMember('1', current.version, confirmDelete.stepUpToken)).success, true);
+  const archiveOperationId = client.backend.historyRows[1][0];
+  const confirmRestore = await client.api.reauthenticateOwner(password, 'restoreMember', '1', undefined, archiveOperationId);
+  assert.equal((await client.api.restoreMember({ memberId: '1', archiveOperationId, notificationReconciliationConfirmed: true }, confirmRestore.stepUpToken)).success, true);
+  assert.equal((await client.api.getAllMembers()).members[0].id, '1');
+  assert.equal(client.backend.rows[1][0], '001');
+  assert.equal(client.backend.state.emails.length, 0);
+});
 
 test('renewal client receives a normalized newEndDate from the protected backend contract', async () => {
   const client = createClient();

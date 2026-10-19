@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { createHash, randomUUID, webcrypto } from 'node:crypto';
+import { createHash, createHmac, randomUUID, webcrypto } from 'node:crypto';
 import vm from 'node:vm';
 
 const vendor = readFileSync(new URL('../../backend/Bcrypt.gs', import.meta.url), 'utf8');
@@ -26,17 +26,20 @@ export function createBackend(overrides = {}, options = {}) {
     ['ID', 'Name', 'Phone', 'Age', 'Weight', 'Plan', 'Start', 'End', 'Notified'],
     ['001', 'Synthetic Member', '9999999999', 30, 70, '3 Months', new Date('2026-07-15'), new Date('2026-10-15'), false],
   ];
-  const state = options.shared?.state || { maxRows: options.maxRows || 1000, formats: [], flushes: 0, failWrites: false, sheetReads: 0, sheetWrites: 0, spreadsheetOpens: [], tabSelections: [],
+  const state = options.shared?.state || { maxRows: options.maxRows || 1000, formats: [], flushes: 0, failWrites: false, sheetReads: 0, sheetWrites: 0, fullRangeReads: 0, cellsRead: 0, historyWrites: 0, historyReads: 0, spreadsheetOpens: [], tabSelections: [],
     emails: [], logs: [], lockHeld: false, lockAvailable: true };
   const sheet = {
     getName: () => options.sheetName || 'Members',
     getLastRow: () => rows.length,
     getMaxRows: () => state.maxRows,
     insertRowsAfter: (_, count) => { state.maxRows += count; },
-    getDataRange: () => ({ getValues: () => { state.sheetReads++; return rows.map(row => [...row]); } }),
+    getDataRange: () => ({ getValues: () => { state.sheetReads++; state.fullRangeReads++; state.cellsRead += rows.reduce((n, r) => n + r.length, 0); return rows.map(row => [...row]); } }),
     appendRow: row => { state.sheetWrites++; rows.push(row); },
     deleteRow: row => { state.sheetWrites++; rows.splice(row - 1, 1); },
     getRange: (row, column, count = 1, width = 1) => ({
+      getNumberFormats: () => Array.from({ length: count }, () => Array.from({ length: width }, (_, j) => options.initialFormats?.[column - 1 + j] || 'General')),
+      setNumberFormats: values => { values.forEach((formats, i) => formats.forEach((format, j) => state.formats.push({ row: row + i, column: column + j, count: 1, width: 1, format }))); },
+      getValues: () => { state.sheetReads++; state.cellsRead += count * width; return Array.from({ length: count }, (_, i) => Array.from({ length: width }, (_, j) => rows[row - 1 + i]?.[column - 1 + j] ?? '')); },
       getDisplayValues: () => rows.slice(row - 1, row - 1 + count).map(values =>
         values.slice(column - 1, column - 1 + width).map((value, j) =>
           column + j === 3 && options.phoneDisplays?.[rows.indexOf(values) + 1] !== undefined
@@ -49,6 +52,27 @@ export function createBackend(overrides = {}, options = {}) {
         if (values.length !== count) throw new Error('Wrong range height');
         values.forEach((valuesRow, i) => valuesRow.forEach((value, j) => { rows[row - 1 + i] ||= []; rows[row - 1 + i][column - 1 + j] = value; }));
       },
+    }),
+  };
+  const historyRows = options.shared?.historyRows || [['Operation ID', 'Member ID', 'Action', 'State', 'Intent', 'Before', 'After', 'At', 'Notification Journal', 'Result']];
+  const historySheet = {
+    getLastRow: () => historyRows.length,
+    getMaxRows: () => 100000,
+    insertRowsAfter: () => {},
+    getDataRange: () => ({ getValues: () => { state.historyReads++; return historyRows.map(row => [...row]); } }),
+    getRange: (row, column, count = 1, width = 1) => ({
+      setNumberFormat() { return this; },
+      setValues(values) {
+        if (state.failHistoryWrites) throw new Error('Synthetic history storage failure');
+        state.historyWrites++;
+        values.forEach((r, i) => { historyRows[row - 1 + i] ||= []; r.forEach((v, j) => { historyRows[row - 1 + i][column - 1 + j] = v; }); });
+      },
+      setValue(value) {
+        if (state.failHistoryWrites || (state.failHistoryCommit && column === 4)) throw new Error('Synthetic history commit failure');
+        state.historyWrites++;
+        historyRows[row - 1][column - 1] = value;
+      },
+      getValues: () => historyRows.slice(row - 1, row - 1 + count).map(r => r.slice(column - 1, column - 1 + width)),
     }),
   };
   const store = {
@@ -68,6 +92,7 @@ export function createBackend(overrides = {}, options = {}) {
       flush: () => { state.flushes++; },
       openById: id => {
         state.spreadsheetOpens.push(id);
+        if (id === 'SYNTHETIC-HISTORY-BOOK') return { getSheetByName: name => name === 'History' ? historySheet : null };
         if (id !== 'SYNTHETIC-STAGING-BOOK') throw new Error('Private Google error for ' + id);
         return { getSheetByName: name => {
           state.tabSelections.push(name);
@@ -82,6 +107,7 @@ export function createBackend(overrides = {}, options = {}) {
     Utilities: {
       DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
       computeDigest: (_, value) => [...createHash('sha256').update(value).digest()],
+      computeHmacSha256Signature: (value, key) => [...createHmac('sha256', key).update(value).digest()],
       getUuid: randomUUID,
       parseDate: value => new Date(value + 'T00:00:00+05:30'),
       formatDate: value => new Intl.DateTimeFormat('en-CA', {
@@ -115,7 +141,7 @@ export function createBackend(overrides = {}, options = {}) {
   }
   const decode = response => JSON.parse(response.text);
   return {
-    context, properties, rows, state, Date: ClockDate,
+    context, properties, rows, historyRows, state, Date: ClockDate,
     advance: milliseconds => { clock += milliseconds; },
     post: value => decode(context.doPost({ postData: { contents: JSON.stringify(value) } })),
     rawPost: event => decode(context.doPost(event)),

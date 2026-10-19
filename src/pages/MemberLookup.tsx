@@ -15,6 +15,7 @@ import { Alert, Button, StatusBadge } from "../components/ui";
 import { formatDate } from "../utils/presentation";
 
 export default function MemberLookup() {
+  const capabilityMode = typeof __GYM_PUBLIC_CONFIG__ !== 'undefined' && __GYM_PUBLIC_CONFIG__.lookupMode === 'capability';
   const [memberId, setMemberId] = useState("");
   const [member, setMember] = useState<PublicMember | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,11 +25,10 @@ export default function MemberLookup() {
     event.preventDefault();
     setMember(null);
     if (
-      !/^\d+$/.test(memberId.trim()) ||
-      !Number.isSafeInteger(Number(memberId)) ||
-      Number(memberId) < 1
+      capabilityMode ? !/^[a-f0-9]{64}$/.test(memberId.trim()) :
+      (!/^\d+$/.test(memberId.trim()) || !Number.isSafeInteger(Number(memberId)) || Number(memberId) < 1)
     ) {
-      setError("Enter your numeric Member ID, for example 1.");
+      setError(capabilityMode ? "Enter the private access code provided by your gym." : "Enter your numeric Member ID, for example 1.");
       return;
     }
     if (!getApiUrl()) {
@@ -94,21 +94,21 @@ export default function MemberLookup() {
             <div className="section-kicker">YOUR MEMBERSHIP, AT A GLANCE</div>
             <h2>Ready for your next session?</h2>
             <p className="text-secondary">
-              Your membership details are one ID away.
+              {capabilityMode ? "Use the private access code provided by your gym." : "Your membership details are one ID away."}
             </p>
-            <label htmlFor="member-id">Member ID</label>
+            <label htmlFor="member-id">{capabilityMode ? "Membership access code" : "Member ID"}</label>
             <input
               id="member-id"
               type="text"
-              inputMode="numeric"
+              inputMode={capabilityMode ? "text" : "numeric"}
               autoComplete="off"
-              maxLength={16}
+              maxLength={capabilityMode ? 64 : 16}
               aria-invalid={!!error}
               aria-describedby={error ? "lookup-error" : "lookup-help"}
               value={memberId}
               onChange={(event) => setMemberId(event.target.value)}
               disabled={loading}
-              placeholder="Enter your ID, e.g. 1"
+              placeholder={capabilityMode ? "Enter your private access code" : "Enter your ID, e.g. 1"}
               className="field"
             />
             <Button variant="primary" disabled={loading} className="full-width">
@@ -174,7 +174,7 @@ export default function MemberLookup() {
             )}
           </div>
           <p className="lookup-help">
-            Not sure of your ID? Your gym team can help.
+            {capabilityMode ? "Need a new access code? Contact your gym team." : "Not sure of your ID? Your gym team can help."}
           </p>
         </div>
       </section>

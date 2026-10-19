@@ -197,3 +197,14 @@ deployment version. Nothing in this generator changes an existing Google project
 Google references: [Web app deployment](https://developers.google.com/apps-script/guides/web),
 [Script Properties](https://developers.google.com/apps-script/guides/properties),
 [V8 runtime](https://developers.google.com/apps-script/guides/v8-runtime).
+
+## Security hardening branch activation gates
+
+The Phase 2 security implementation adds **disabled-by-default migrations** for
+managed owner identity, private member access codes and reversible history.
+Do not enable them or replace a working production deployment based only on local
+tests. First follow the [security production checklist](docs/SECURITY_PRODUCTION_CHECKLIST.md)
+for independent backup/restore, separate synthetic previews, provider setup,
+member migration and exact frontend/Apps Script version acceptance. The legacy
+lookup/login defaults preserve the existing installation until those approvals.
+Frontend and Apps Script releases remain separate manual decisions.
