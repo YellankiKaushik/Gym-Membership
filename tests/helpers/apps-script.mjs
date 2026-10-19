@@ -126,7 +126,7 @@ export function createBackend(overrides = {}, options = {}) {
     } },
     ContentService: {
       MimeType: { JSON: 'application/json' },
-      createTextOutput: text => ({ text, setMimeType() { return this; } }),
+      createTextOutput: text => ({ text, getContent() { return text; }, setMimeType() { return this; } }),
     },
     GmailApp: { sendEmail: (...args) => { options.onEmail?.(...args); if (state.failEmail) throw new Error('Synthetic rejected email'); state.emails.push(args); } },
   });

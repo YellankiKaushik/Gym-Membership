@@ -2,7 +2,29 @@
 
 Prepared 19 October 2026. **NOT approved for production release.** No account setting, production data, deployment, trigger or Script Property was changed by Phase 2 implementation. Use [implementation status](SECURITY_IMPLEMENTATION_REPORT.md) and [test evidence](SECURITY_TEST_RESULTS.md) before approving any rollout.
 
-## Stop gates
+## Phase 4 prototype scope — 20 October 2026
+
+The owner confirms all existing records are fictional, the current Sheet/project
+are for prototype testing, and Google/GitHub/Vercel account MFA is enabled.
+[The prototype rollout](SECURITY_PROTOTYPE_ROLLOUT.md) governs this limited
+exercise using the **existing** Apps Script project and unchanged public `/exec`
+URL. Its instructions supersede the new-project/isolation prerequisite below
+for editor/head testing of this prototype only. Account MFA is owner-confirmed,
+not a claim that the application's managed MFA is active.
+
+| Release gate | Phase 4 decision |
+| --- | --- |
+| Fake-data prototype local verification and owner-run head testing | **GO**, with mail disabled, migrations off, controlled access, manual rollback capture and the documented limits |
+| Public prototype release | **NO-GO pending** owner-run head results, actual security CI, recorded rollback targets and approval of the exact backend/frontend release; no deployment performed |
+| Vercel Preview isolation | **UNVERIFIED / NOT APPROVED**; keep its fail-closed guard. Do not attest the shared backend is isolated or weaken the guard to obtain a preview |
+| Real-customer readiness | **NO-GO**; all customer/independent recovery/privacy/identity/release controls below still apply |
+
+A later authorized security-branch push may run GitHub checks while a Vercel
+preview deliberately fails closed. That failure does not prove isolation or
+authorize production. No direct main push, automatic public deployment, fake
+backup attestation or migration activation is permitted by this exception.
+
+## Customer and isolated-Preview stop gates
 
 - [ ] A distinct synthetic Google project, Sheet, owner identity and credentials have been verified for previews.
 - [ ] The shared preview/production environment binding has been corrected by an authorized administrator. The read-only Phase 2 check still found it shared.
@@ -12,7 +34,7 @@ Prepared 19 October 2026. **NOT approved for production release.** No account se
 - [ ] Member-access migration and distribution/recovery procedures have been approved before changing lookup mode.
 - [ ] Exact frontend and Apps Script versions pass disposable Google staging and receive separate deployment approval.
 
-Do **not push this branch** until preview isolation is verified. A GitHub push may create a Vercel preview automatically. Local fail-closed build guards reduce risk but are not proof that account configuration or an existing preview is isolated.
+For customer/isolated-Preview rollout, do **not push this branch** until preview isolation is verified. A GitHub push may create a Vercel preview automatically. Local fail-closed build guards reduce risk but are not proof that account configuration or an existing preview is isolated. The Phase 4 fake-data CI-only branch-push procedure above is a separate, later-authorized exception; it does not approve a Preview deployment.
 
 ## 1. Preview isolation without exposing values
 
