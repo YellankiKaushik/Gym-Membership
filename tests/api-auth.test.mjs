@@ -124,6 +124,29 @@ test('owner recovery client interfaces restore archived records with the matchin
   assert.equal(client.backend.state.emails.length, 0);
 });
 
+test('capability issuance forwards the member version bound into fresh confirmation', async () => {
+  const client = createClient(undefined, { MEMBER_LOOKUP_MODE: 'capability', OWNER_STEP_UP_REQUIRED: 'true' });
+  await client.api.loginOwner(ownerId, password);
+  const current = (await client.api.getAllMembers()).members[0];
+  const proof = await client.api.reauthenticateOwner(password, 'issueMemberLookup', '1', current.version);
+  const issued = await client.api.issueMemberLookup('1', 1, proof.stepUpToken, current.version);
+  assert.equal(issued.success, true);
+  assert.equal(JSON.parse(client.requests.at(-1).options.body).expectedVersion, current.version);
+  assert.equal(client.backend.post({ action: 'lookupMember', lookupToken: issued.lookupToken }).success, true);
+});
+
+test('capability revocation forwards the member version bound into fresh confirmation', async () => {
+  const client = createClient(undefined, { MEMBER_LOOKUP_MODE: 'capability', OWNER_STEP_UP_REQUIRED: 'true' });
+  await client.api.loginOwner(ownerId, password);
+  const issueProof = await client.api.reauthenticateOwner(password, 'issueMemberLookup', '1');
+  const issued = await client.api.issueMemberLookup('1', 1, issueProof.stepUpToken);
+  const current = (await client.api.getAllMembers()).members[0];
+  const proof = await client.api.reauthenticateOwner(password, 'revokeMemberLookup', '1', current.version);
+  assert.equal((await client.api.revokeMemberLookup('1', proof.stepUpToken, current.version)).success, true);
+  assert.equal(JSON.parse(client.requests.at(-1).options.body).expectedVersion, current.version);
+  assert.equal(client.backend.post({ action: 'lookupMember', lookupToken: issued.lookupToken }).success, false);
+});
+
 test('renewal client receives a normalized newEndDate from the protected backend contract', async () => {
   const client = createClient();
   assert.equal((await client.api.loginOwner(ownerId, password)).success, true);

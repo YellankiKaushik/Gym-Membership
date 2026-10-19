@@ -1389,7 +1389,7 @@ function validateOwnerSession_(token) {
 ;
 // ===== END backend/Auth.gs =====
 
-// ===== BEGIN backend/Code.gs | SHA-256 d14c9dd86836dd05c27be22c642530bfb9913ff9bf76c25c33ff763a82c10113 =====
+// ===== BEGIN backend/Code.gs | SHA-256 930f3429c9a448fdfa04ea6d5ec623e7bda7c3a8307e8ef530713620d93edfa7 =====
 /**
  * Gym Membership Management System
  * Uploaded nine-column baseline with owner authentication (not yet deployed).
@@ -2291,6 +2291,10 @@ function completeOwnerIdentity_(data) {
     const index = entries.findIndex(function (item) { return item.id === proof.id && item.nonce === proof.nonce && item.purpose === proof.purpose; });
     if (index < 0) return invalid();
     const challenge = entries[index];
+    // The verifier receives challenge metadata from the browser. Enforce fresh
+    // authentication against our saved creation time too (120s lifetime, 5s
+    // clock tolerance), before consuming authority or issuing a session/proof.
+    if (proof.authenticatedAt < challenge.expiresAt - 125000 || proof.expiresAt <= Date.now()) return invalid();
     const session = challenge.sessionKey ? validateOwnerSession_(data.sessionToken) : null;
     if (challenge.sessionKey && (!session || session.key !== challenge.sessionKey)) return invalid();
     entries.splice(index, 1);

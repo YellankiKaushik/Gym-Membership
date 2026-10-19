@@ -222,12 +222,12 @@ export function reauthenticateOwner(password: string, purpose: string, memberId:
 
 // Owner-only migration interfaces. UI activation/distribution still requires
 // approval; callers never need to extract or persist the owner session token.
-export function issueMemberLookup(memberId: string, validDays?: number, stepUpToken?: string) {
-  return postAdminAction<ApiResponse & { lookupToken?: string; expiresAt?: number }>({ action: 'issueMemberLookup', memberId, validDays, stepUpToken });
+export function issueMemberLookup(memberId: string, validDays?: number, stepUpToken?: string, expectedVersion?: string) {
+  return postAdminAction<ApiResponse & { lookupToken?: string; expiresAt?: number }>({ action: 'issueMemberLookup', memberId, validDays, stepUpToken, expectedVersion });
 }
 
-export function revokeMemberLookup(memberId: string, stepUpToken?: string) {
-  return postAdminAction({ action: 'revokeMemberLookup', memberId, stepUpToken });
+export function revokeMemberLookup(memberId: string, stepUpToken?: string, expectedVersion?: string) {
+  return postAdminAction({ action: 'revokeMemberLookup', memberId, stepUpToken, expectedVersion });
 }
 
 export function restoreMember(data: { memberId: string; archiveOperationId: string; expectedVersion?: string; notificationReconciliationConfirmed: boolean }, stepUpToken: string) {

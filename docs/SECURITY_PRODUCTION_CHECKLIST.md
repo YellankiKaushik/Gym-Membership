@@ -174,7 +174,10 @@ Leave current lookup mode unchanged until member migration is approved. The loca
 
 The owner client exports `issueMemberLookup`, `revokeMemberLookup` and
 `restoreMember` with the existing private in-memory session handling; obtain a
-purpose/member/version-bound confirmation first. Do not extract session tokens
+purpose/member/version-bound confirmation first. Pass the same version to
+`issueMemberLookup(memberId, validDays, stepUpToken, expectedVersion)` or
+`revokeMemberLookup(memberId, stepUpToken, expectedVersion)` when it was bound
+into the confirmation. Do not extract session tokens
 from developer tools or place them in command arguments to operate these routes.
 Review the owner-facing distribution/recovery surface before migration; this
 branch provides tested interfaces and the member entry form, not a bulk token

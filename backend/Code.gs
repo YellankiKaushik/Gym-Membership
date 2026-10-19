@@ -899,6 +899,10 @@ function completeOwnerIdentity_(data) {
     const index = entries.findIndex(function (item) { return item.id === proof.id && item.nonce === proof.nonce && item.purpose === proof.purpose; });
     if (index < 0) return invalid();
     const challenge = entries[index];
+    // The verifier receives challenge metadata from the browser. Enforce fresh
+    // authentication against our saved creation time too (120s lifetime, 5s
+    // clock tolerance), before consuming authority or issuing a session/proof.
+    if (proof.authenticatedAt < challenge.expiresAt - 125000 || proof.expiresAt <= Date.now()) return invalid();
     const session = challenge.sessionKey ? validateOwnerSession_(data.sessionToken) : null;
     if (challenge.sessionKey && (!session || session.key !== challenge.sessionKey)) return invalid();
     entries.splice(index, 1);

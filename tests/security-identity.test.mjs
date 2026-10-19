@@ -88,6 +88,21 @@ test('identity challenges are bounded, expire, and preserve lock behavior withou
   assert.equal(app.state.lockHeld, false);
 });
 
+test('backend enforces authentication after its stored challenge despite client-altered challenge time', async () => {
+  const { app, env, begin } = fixture();
+  const challenge = begin();
+  const altered = { ...challenge, expiresAt: challenge.expiresAt - 60000 };
+  const idToken = await tokenFor(app, challenge, { auth_time: Math.floor(app.Date.now() / 1000) - 60 });
+  // The verifier sees client-supplied challenge metadata. Only Apps Script has
+  // the authoritative creation time; a valid signature alone cannot prove it.
+  const proof = await verifyOwnerIdentity(idToken, altered, env, { getKey, now: app.Date.now() });
+  assert.equal(app.post({ action: 'completeOwnerIdentity', proof }).code, 'INVALID_IDENTITY');
+  assert.equal([...app.properties.keys()].some(key => key.startsWith('OWNER_SESSION_')), false);
+  assert.equal(JSON.parse(app.properties.get('OWNER_IDENTITY_CHALLENGES')).length, 1);
+  const fresh = await verifyOwnerIdentity(await tokenFor(app, challenge), challenge, env, { getKey, now: app.Date.now() });
+  assert.equal(app.post({ action: 'completeOwnerIdentity', proof: fresh }).success, true);
+});
+
 test('managed destructive step-up requires the matching existing session and fresh one-use identity', async () => {
   const { app, env, begin } = fixture();
   let challenge = begin();
