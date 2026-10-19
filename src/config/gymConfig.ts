@@ -2,12 +2,13 @@ import gym1 from "../assets/gym/gym1.jpg";
 import gym2 from "../assets/gym/gym2.jpg";
 import gym3 from "../assets/gym/gym3.jpg";
 import { MEMBERSHIP_PLANS } from "../utils/membership";
+import { publicHttpsUrl, publicImageUrl } from "../utils/publicUrls";
 
 const installation =
   typeof __GYM_PUBLIC_CONFIG__ !== "undefined" ? __GYM_PUBLIC_CONFIG__ : {};
 const gallery = installation.galleryImages
   ?.split(",")
-  .map((url) => url.trim())
+  .map(publicImageUrl)
   .filter(Boolean);
 export const gymConfig = {
   gym: {
@@ -24,10 +25,10 @@ export const gymConfig = {
   address: {
     label: installation.address || "Dilsukhnagar, Hyderabad",
     mapLink:
-      installation.mapUrl ||
+      publicHttpsUrl(installation.mapUrl) ||
       "https://maps.google.com/?q=Dilsukhnagar+Hyderabad",
   },
-  logo: installation.logoUrl || "",
+  logo: publicImageUrl(installation.logoUrl),
   gallery: gallery?.length ? gallery : [gym1, gym2, gym3],
   contact: {
     phone: installation.contactPhone || "",

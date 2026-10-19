@@ -57,6 +57,9 @@ export default function OwnerLogin({
         <p className="text-secondary">
           Welcome back. Let's keep things moving.
         </p>
+        {typeof __GYM_PUBLIC_CONFIG__ !== 'undefined' && __GYM_PUBLIC_CONFIG__.environment === 'preview' && (
+          <Alert>Staging preview: use synthetic members and staging credentials only.</Alert>
+        )}
         <form onSubmit={onSubmit} aria-busy={loading}>
           <label htmlFor="owner-id">Owner ID</label>
           <input

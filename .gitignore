@@ -16,6 +16,8 @@ dist-ssr
 .env.*
 !.env.example
 test-results/
+.security-tools/
+security-analysis/
 
 # Editor directories and files
 .vscode/*

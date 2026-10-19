@@ -1,0 +1,9 @@
+name: FitZone application and explicit Apps Script mirrors
+paths:
+  - src
+  - api
+  - server
+  - scripts
+  - security-analysis/apps-script
+queries:
+  - uses: security-extended
