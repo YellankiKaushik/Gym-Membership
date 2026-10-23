@@ -1,0 +1,27 @@
+node_modules/
+.bundle*/
+.cache/
+.remotion/
+*.log
+.env
+.env.*
+*.local
+
+# All render intermediates, review sheets, recordings and debug evidence stay local.
+output/*
+
+# Deliberate release exceptions: each final MP4 is <=20 MiB; combined <=40 MiB.
+!output/fitzone-hero-1080p.mp4
+!output/fitzone-vertical-1080x1920.mp4
+!output/fitzone-clean-no-voiceover.mp4
+!output/storyboard.png
+!output/verification.json
+!output/VERIFICATION.md
+!output/playback-verification.json
+
+# Optional private narration and unused capture with photographic content.
+assets/audio/voiceover.*
+assets/captures/mobile-lookup.png
+
+# Obsolete one-time migration; preserved locally, not a supported project command.
+scripts/extract-vertical.mjs

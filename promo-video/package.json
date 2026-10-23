@@ -1,0 +1,30 @@
+{
+  "name": "fitzone-promo-video",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts --port=3007",
+    "capture": "node scripts/capture.mjs",
+    "audio": "node scripts/audio.mjs",
+    "preview": "node scripts/render.mjs preview",
+    "render": "node scripts/render.mjs hero",
+    "render:vertical": "node scripts/render.mjs vertical",
+    "render:all": "node scripts/render.mjs all",
+    "mix": "node scripts/mix.mjs",
+    "review": "node scripts/review-film.mjs",
+    "verify": "node scripts/verify.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.538",
+    "@remotion/cli": "4.0.538",
+    "@remotion/renderer": "4.0.538",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "4.0.538",
+    "typescript": "5.9.3"
+  }
+}
