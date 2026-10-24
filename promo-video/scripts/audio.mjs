@@ -1,7 +1,7 @@
-import {writeFile,mkdir} from 'node:fs/promises';
-import {resolve} from 'node:path';
+import {writeFile} from 'node:fs/promises';
+import {withPipeline} from './pipeline.mjs';
 // Original deterministic synthesis. No recordings, samples, or third-party compositions.
-const SR=48000;await mkdir('assets/audio',{recursive:true});
+const SR=48000;
 function wav(samples){const b=Buffer.alloc(44+samples.length*2);b.write('RIFF');b.writeUInt32LE(b.length-8,4);b.write('WAVEfmt ',8);b.writeUInt32LE(16,16);b.writeUInt16LE(1,20);b.writeUInt16LE(2,22);b.writeUInt32LE(SR,24);b.writeUInt32LE(SR*4,28);b.writeUInt16LE(4,32);b.writeUInt16LE(16,34);b.write('data',36);b.writeUInt32LE(samples.length*2,40);for(let i=0;i<samples.length;i++)b.writeInt16LE(Math.round(Math.max(-1,Math.min(1,samples[i]))*32767),44+i*2);return b;}
 let seed=31415;const noise=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/2147483648-1;};
 const hz=m=>440*2**((m-69)/12);
@@ -42,4 +42,6 @@ function generate(duration,vertical){
  for(let i=0;i<music.length/2;i++){const t=i/SR,g=Math.min(1,t/1.2)*Math.min(1,(duration-t)/1.2);music[i*2]*=g;music[i*2+1]*=g;const h=Math.min(1,(duration-t)/.5);sfx[i*2]*=h;sfx[i*2+1]*=h;}
  return {music,sfx};
 }
-for(const [duration,vertical] of [[60,false],[30,true]].filter(([,v])=>!process.argv.includes('--hero-only')||!v)){const stems=generate(duration,vertical);for(const [name,data]of Object.entries(stems)){let peak=0;for(const v of data)peak=Math.max(peak,Math.abs(v));const gain=(name==='music'?.5:.35)/peak;for(let i=0;i<data.length;i++)data[i]*=gain;await writeFile(resolve('assets/audio',`${vertical?'vertical-':''}${name}.wav`),wav(data));console.log(`${vertical?'Vertical':'Hero'} ${name}: ${duration}s, original stereo PCM`);}}
+await withPipeline('audio',async pipeline=>{
+ for(const [duration,vertical] of [[60,false],[30,true]].filter(([,v])=>!process.argv.includes('--hero-only')||!v)){const stems=generate(duration,vertical);for(const [name,data]of Object.entries(stems)){let peak=0;for(const v of data)peak=Math.max(peak,Math.abs(v));const gain=(name==='music'?.5:.35)/peak;for(let i=0;i<data.length;i++)data[i]*=gain;await writeFile(await pipeline.stage(`assets/audio/${vertical?'vertical-':''}${name}.wav`),wav(data));console.log(`${vertical?'Vertical':'Hero'} ${name}: ${duration}s, original stereo PCM`);}}
+});

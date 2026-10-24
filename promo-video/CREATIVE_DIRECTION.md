@@ -15,7 +15,7 @@ The edit retains these timing windows:
 | 13–23 | Owner overview → tracked native summary strip → member workspace and Add control |
 | 23–33 | Actual typed-name states, native edit-field detail, actual renewal selection, search and native filtered result |
 | 33–41 | Real Expiring Soon interaction; the filtered table is inspected through its three status rows |
-| 41–48 | A native member identity connects once to a sheet plane with the actual nine-column schema; no perpetual live-sync loop |
+| 41–48 | A native member identity connects once to a sheet plane illustrating the backend's nine-column order with installation-guide labels; no perpetual live-sync loop |
 | 48–54 | Desktop public experience and mobile owner dashboard, framed separately with restrained camera/scroll movement |
 | 54–60 | Matching brand lockup, larger URL and intentional final reading hold |
 

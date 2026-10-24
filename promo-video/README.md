@@ -44,6 +44,8 @@ Run these commands from `promo-video/`:
 
 ```powershell
 npm run typecheck
+npm test                       # focused reliability regressions; root npm ci also required
+npm run check:compositions      # layout checks, stills and two 1s sample encodes
 npm run preview                # representative full-resolution stills
 node scripts/render.mjs draft  # silent 540p motion-review draft
 npm run render                 # refined hero, clean and silent; retains picture master
@@ -52,6 +54,10 @@ npm run verify                 # both films: metadata, full decode, audio, story
 ```
 
 `npm run render:all` renders both compositions. Rendering uses up to three Chromium tabs and software H.264; FFmpeg mixes separate stems while copying the encoded picture. Outputs are written under `output/`; rendering overwrites those generated filenames. Keep a separate copy before experimenting with a published version.
+
+The supported render, mix, audio-generation, verification and composition-check commands share an exclusive `.pipeline-lock/`. An overlapping command exits with `PIPELINE_BUSY`; rerun it after the active job finishes. Each command writes to a unique ignored `.pipeline-work-*/` directory, prepares the complete output set, and only then replaces destination files. Failed generation or encoding leaves previous exports intact; a replacement failure attempts rollback. This is a recoverable multi-file transaction, not a crash-atomic filesystem snapshot. If rollback cannot complete, its recovery directory and lock are retained and reported. After a process crash, confirm no pipeline process remains and inspect the owner/recovery manifest before manually removing its stale lock; preserve any reported recovery files.
+
+Composition dimensions choose the layout and stems. A legacy `vertical` JSON prop cannot switch the registered landscape or portrait format. Studio and FFmpeg read the same pre-mastering gains from `audio-config.json`; final exports additionally receive FFmpeg loudness mastering.
 
 After a fresh clone, run `npm run verify -- --published-only` to check the three shipped MP4s without rerendering. Default `npm run verify` expects all four final outputs, including the uncommitted silent hero created by `npm run render:all`. To check only freshly rendered hero versions, run `node scripts/verify.mjs --hero-only`. Existing published reports describe the supplied films, not future edits.
 
@@ -87,6 +93,10 @@ The portrait film has separate music/effect stems. `node scripts/mix.mjs --verti
 - `scripts/audio.mjs`: original deterministic synthesis; `npm run audio` regenerates the four WAV stems.
 - `scripts/capture.mjs`: `npm run capture` regenerates synthetic native-UI regions after root dependency installation. It uses isolated Vite configuration, reads no environment file, intercepts fixture API responses, and blocks external browser requests. All names, IDs and dates are fictional; contacts are blank or hidden. The illustrative clock is 24 October 2026. No production account is accessed.
 
-The committed captures and WAVs are sufficient to render from a fresh clone. See [asset provenance](assets/ASSET_PROVENANCE.md), [Lucide ISC/MIT attribution](assets/LICENSE-lucide.txt), and the [capture audit](assets/captures/capture-audit.json). No external stock footage, photographic asset, sampled music or redistributed system font is required. The unused full-page mobile capture, which includes unrelated gym photographs, remains excluded locally.
+The committed captures and WAVs are sufficient to render from a fresh clone. Keep the committed WAVs to reproduce the approved films: the current synthesis reproduces the refined hero stems, while the preserved earlier portrait stems have historical noise/choreography differences. Running `npm run audio` intentionally prepares a new stem set; review it before re-exporting the portrait film. Audio synthesis is optional for rendering and is not a prerequisite for a fresh clone.
+
+See [asset provenance](assets/ASSET_PROVENANCE.md), [Lucide ISC/MIT attribution](assets/LICENSE-lucide.txt), and the [capture audit](assets/captures/capture-audit.json). No external stock footage, photographic asset, sampled music or redistributed system font is required. The unused full-page mobile capture, which includes unrelated gym photographs, remains excluded locally.
+
+See [Remotion license obligations](LICENSE_OBLIGATIONS.md) for the eight custom-license dependencies and applicable free/Company License conditions. No dependency license classification or lockfile has been changed. The [schema review](SCHEMA_REVIEW.md) explains the approved spreadsheet illustration's installation-guide labels and the staging fixture's equivalent positional contract.
 
 [CREATIVE_DIRECTION.md](CREATIVE_DIRECTION.md) records the brand and product-truth constraints. [CREATIVE_REVIEW.md](CREATIVE_REVIEW.md) identifies the five weakest moments in the original encoded film and the replacement choreography. Historical `output/review-v1/` and current detailed `output/review-v2/` evidence mentioned there are local-only archives; the refined hero, storyboard and compact reports above are the published deliverables.

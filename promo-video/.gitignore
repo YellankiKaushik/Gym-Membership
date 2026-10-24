@@ -2,6 +2,8 @@ node_modules/
 .bundle*/
 .cache/
 .remotion/
+.pipeline-lock/
+.pipeline-work-*/
 *.log
 .env
 .env.*

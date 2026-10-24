@@ -14,6 +14,8 @@
     "mix": "node scripts/mix.mjs",
     "review": "node scripts/review-film.mjs",
     "verify": "node scripts/verify.mjs",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "check:compositions": "node scripts/check-compositions.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

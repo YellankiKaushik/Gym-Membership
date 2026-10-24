@@ -3,6 +3,7 @@ import react from '../../node_modules/@vitejs/plugin-react/dist/index.js';
 import { chromium } from '../../node_modules/playwright/index.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { withCaptureResources } from './capture-resources.mjs';
 
 // The original app is served with an isolated, explicit config. No .env is read.
 const root = resolve('..');
@@ -12,11 +13,11 @@ await mkdir(out, {recursive: true});
 process.chdir(root);
 // Synthetic fixture endpoint only; every request to it is intercepted below.
 const endpoint = 'https://script.google.com/macros/s/FILM_FIXTURE_ONLY/exec';
-const server = await createServer({root, configFile: false, envFile: false,
+await withCaptureResources({createServer: () => createServer({root, configFile: false, envFile: false,
   plugins: [react()], define: {__GYM_PUBLIC_CONFIG__: JSON.stringify({apiUrl:endpoint, name:'FitZone', lookupMode:'legacy', environment:'film'})},
-  server:{host:'127.0.0.1',port:4197,strictPort:true},logLevel:'error'});
-await server.listen();
-const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+  server:{host:'127.0.0.1',port:4197,strictPort:true},logLevel:'error'}),
+  launchBrowser: () => chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe'})
+}, async browser => {
 const audit = {date:'2026-10-24', source:'Original src/App.tsx and original CSS', externalRequests:[], errors:[], captures:[]};
 const names = ['Aarav Mehta','Ananya Rao','Rohan Shah','Maya Kapoor','Arjun Sen','Isha Verma','Dev Malhotra','Tara Desai'];
 const ends = ['2026-11-23','2026-10-27','2026-10-29','2026-10-20','2026-12-23','2027-01-23','2026-10-24','2026-10-18'];
@@ -59,7 +60,6 @@ async function login(page) {
  await page.getByRole('heading',{name:'Owner Dashboard',exact:true}).waitFor();
  await page.locator('.member-row').first().waitFor();
 }
-try {
  const {page,context}=await setup(1440,1100);
  await snap(page,'.lookup-hero','lookup-hero');
  await snap(page,'.lookup-form','lookup-empty');
@@ -134,4 +134,4 @@ try {
  if(audit.errors.length||audit.externalRequests.length) throw new Error(JSON.stringify(audit));
  await writeFile(resolve(out,'capture-audit.json'),JSON.stringify(audit,null,2));
  console.log(`Captured ${audit.captures.length} original UI regions; no external requests or browser errors.`);
-} finally {await browser.close();await server.close();}
+});
