@@ -1,0 +1,22 @@
+[
+  {
+    "id": "hero",
+    "videoWidth": 1920,
+    "videoHeight": 1080,
+    "duration": 60,
+    "playbackAdvanced": true,
+    "seekedTo": 57,
+    "error": null,
+    "decodedFrames": 110
+  },
+  {
+    "id": "vertical",
+    "videoWidth": 1080,
+    "videoHeight": 1920,
+    "duration": 30,
+    "playbackAdvanced": true,
+    "seekedTo": 27,
+    "error": null,
+    "decodedFrames": 82
+  }
+]
