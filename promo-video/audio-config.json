@@ -1,0 +1,8 @@
+{
+  "musicGain": 1,
+  "sfxGain": 1,
+  "voiceoverGain": 1,
+  "musicGainWithVoiceover": 0.42,
+  "targetLUFS": -17,
+  "truePeakDB": -1.5
+}

@@ -1,0 +1,61 @@
+1
+00:00:01,000 --> 00:00:04,600
+FitZone. Smarter gym membership management.
+
+2
+00:00:05,400 --> 00:00:08,400
+One member ID. Your plan, your status,
+and the days ahead.
+
+3
+00:00:08,600 --> 00:00:12,500
+Check your membership,
+then get back to training.
+
+4
+00:00:13,400 --> 00:00:17,400
+For the person running the gym,
+a clearer view of the day.
+
+5
+00:00:17,600 --> 00:00:22,500
+Total members. Active memberships. Expiring soon.
+And those ready for a fresh start.
+
+6
+00:00:23,300 --> 00:00:27,500
+Welcome new members. Keep their details current.
+Renew the next term.
+
+7
+00:00:28,100 --> 00:00:32,500
+And find the right membership
+with search and filters.
+
+8
+00:00:33,400 --> 00:00:37,400
+See memberships expiring today
+or in the next seven days.
+
+9
+00:00:37,600 --> 00:00:40,500
+Know who needs attention,
+and start the next conversation.
+
+10
+00:00:41,400 --> 00:00:45,400
+A straightforward workflow,
+built around Google Sheets.
+
+11
+00:00:45,600 --> 00:00:47,500
+Load, manage, and refresh.
+
+12
+00:00:48,300 --> 00:00:53,400
+On desktop or mobile.
+Built for the people who run the gym.
+
+13
+00:00:55,000 --> 00:00:59,000
+FitZone. Less admin. More momentum.

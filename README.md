@@ -34,6 +34,13 @@ Start here:
 - Responsive light workspace, mobile member cards, accessible labels, keyboard
   dialogs, visible focus and reduced-motion support.
 
+## Promotional Video
+
+The [editable Remotion promotional project](promo-video/README.md) includes the
+refined 60-second hero film, a 30-second vertical cutdown, original audio,
+subtitles and rendering instructions. The three final MP4 exports are included;
+intermediate renders and review media stay local.
+
 ## Stack and architecture
 
 React 19, TypeScript, Vite 7, Tailwind CSS 3 and Lucide React power the frontend.

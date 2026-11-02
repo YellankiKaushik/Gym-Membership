@@ -1,0 +1,299 @@
+{
+  "generatedAt": "2026-10-24T01:37:41.498Z",
+  "files": [
+    {
+      "name": "fitzone-hero-1080p.mp4",
+      "width": 1920,
+      "height": 1080,
+      "fps": "30/1",
+      "duration": 60,
+      "videoCodec": "h264",
+      "pixelFormat": "yuv420p",
+      "frames": 1800,
+      "audioCodec": "aac",
+      "sampleRate": "48000",
+      "sizeBytes": 13552685,
+      "fullDecode": "passed",
+      "blackSegments": [],
+      "audio": {
+        "input_i": "-16.70",
+        "input_tp": "-1.47",
+        "input_lra": "1.80",
+        "input_thresh": "-26.77",
+        "output_i": "-17.16",
+        "output_tp": "-1.87",
+        "output_lra": "1.70",
+        "output_thresh": "-27.19",
+        "normalization_type": "dynamic",
+        "target_offset": "0.16"
+      }
+    },
+    {
+      "name": "fitzone-clean-no-voiceover.mp4",
+      "width": 1920,
+      "height": 1080,
+      "fps": "30/1",
+      "duration": 60,
+      "videoCodec": "h264",
+      "pixelFormat": "yuv420p",
+      "frames": 1800,
+      "audioCodec": "aac",
+      "sampleRate": "48000",
+      "sizeBytes": 13552685,
+      "fullDecode": "passed",
+      "blackSegments": [],
+      "audio": {
+        "input_i": "-16.70",
+        "input_tp": "-1.47",
+        "input_lra": "1.80",
+        "input_thresh": "-26.77",
+        "output_i": "-17.16",
+        "output_tp": "-1.87",
+        "output_lra": "1.70",
+        "output_thresh": "-27.19",
+        "normalization_type": "dynamic",
+        "target_offset": "0.16"
+      }
+    },
+    {
+      "name": "fitzone-vertical-1080x1920.mp4",
+      "width": 1080,
+      "height": 1920,
+      "fps": "30/1",
+      "duration": 30,
+      "videoCodec": "h264",
+      "pixelFormat": "yuv420p",
+      "frames": 900,
+      "audioCodec": "aac",
+      "sampleRate": "48000",
+      "sizeBytes": 5535652,
+      "fullDecode": "passed",
+      "blackSegments": [],
+      "audio": {
+        "input_i": "-16.67",
+        "input_tp": "-1.50",
+        "input_lra": "2.30",
+        "input_thresh": "-26.79",
+        "output_i": "-17.09",
+        "output_tp": "-1.92",
+        "output_lra": "1.70",
+        "output_thresh": "-27.16",
+        "normalization_type": "dynamic",
+        "target_offset": "0.09"
+      }
+    }
+  ],
+  "captureAudit": {
+    "date": "2026-10-24",
+    "source": "Original src/App.tsx and original CSS",
+    "externalRequests": [],
+    "errors": [],
+    "captures": [
+      {
+        "name": "lookup-hero",
+        "width": 1320,
+        "height": 560.734375
+      },
+      {
+        "name": "lookup-empty",
+        "width": 581.90625,
+        "height": 384.734375
+      },
+      {
+        "name": "lookup-type-1",
+        "width": 581.90625,
+        "height": 384.734375
+      },
+      {
+        "name": "lookup-type-10",
+        "width": 581.90625,
+        "height": 384.734375
+      },
+      {
+        "name": "lookup-type-104",
+        "width": 581.90625,
+        "height": 384.734375
+      },
+      {
+        "name": "lookup-filled",
+        "width": 581.90625,
+        "height": 384.734375
+      },
+      {
+        "name": "native-header",
+        "width": 1440,
+        "height": 101
+      },
+      {
+        "name": "lookup-result",
+        "width": 581.90625,
+        "height": 253.09375
+      },
+      {
+        "name": "native-days",
+        "width": 531.90625,
+        "height": 70
+      },
+      {
+        "name": "lookup-complete",
+        "width": 1320,
+        "height": 829.828125
+      },
+      {
+        "name": "dashboard",
+        "width": 1320,
+        "height": 1807.25
+      },
+      {
+        "name": "summary",
+        "width": 1320,
+        "height": 159.078125
+      },
+      {
+        "name": "native-dashboard-heading",
+        "width": 1320,
+        "height": 98.265625
+      },
+      {
+        "name": "native-attention",
+        "width": 1320,
+        "height": 70
+      },
+      {
+        "name": "members",
+        "width": 1320,
+        "height": 1303.90625
+      },
+      {
+        "name": "native-filters-all",
+        "width": 305,
+        "height": 44
+      },
+      {
+        "name": "expiring",
+        "width": 1320,
+        "height": 648.90625
+      },
+      {
+        "name": "native-filters-expiring",
+        "width": 305,
+        "height": 44
+      },
+      {
+        "name": "search",
+        "width": 1320,
+        "height": 386.90625
+      },
+      {
+        "name": "native-ananya",
+        "width": 1318,
+        "height": 130
+      },
+      {
+        "name": "search-A",
+        "width": 1320,
+        "height": 1303.90625
+      },
+      {
+        "name": "search-Ana",
+        "width": 1320,
+        "height": 386.90625
+      },
+      {
+        "name": "search-Ananya",
+        "width": 1320,
+        "height": 386.90625
+      },
+      {
+        "name": "add",
+        "width": 490,
+        "height": 653
+      },
+      {
+        "name": "add-name-0",
+        "width": 490,
+        "height": 653
+      },
+      {
+        "name": "add-name-2",
+        "width": 490,
+        "height": 653
+      },
+      {
+        "name": "add-name-4",
+        "width": 490,
+        "height": 653
+      },
+      {
+        "name": "add-name-10",
+        "width": 490,
+        "height": 653
+      },
+      {
+        "name": "edit",
+        "width": 490,
+        "height": 834.78125
+      },
+      {
+        "name": "edit-name",
+        "width": 432,
+        "height": 79
+      },
+      {
+        "name": "edit-save",
+        "width": 432,
+        "height": 44
+      },
+      {
+        "name": "edit-updated",
+        "width": 490,
+        "height": 834.78125
+      },
+      {
+        "name": "edit-name-updated",
+        "width": 432,
+        "height": 79
+      },
+      {
+        "name": "renew",
+        "width": 490,
+        "height": 593.171875
+      },
+      {
+        "name": "renew-plan-field",
+        "width": 432,
+        "height": 79
+      },
+      {
+        "name": "renew-selected",
+        "width": 490,
+        "height": 593.171875
+      },
+      {
+        "name": "renew-plan-selected",
+        "width": 432,
+        "height": 79
+      },
+      {
+        "name": "mobile-form",
+        "width": 358,
+        "height": 364.6875
+      },
+      {
+        "name": "mobile-result",
+        "width": 358,
+        "height": 245.09375
+      },
+      {
+        "name": "mobile-dashboard",
+        "width": 358,
+        "height": 3912.484375
+      }
+    ]
+  },
+  "notes": [
+    "Synthetic fixture captured from original app, fixed 24 October 2026 clock.",
+    "Visual QA covers representative final frames plus frames adjacent to every hero cut.",
+    "No optional voiceover source is present; the standard render workflow uses original music and effects only."
+  ]
+}
