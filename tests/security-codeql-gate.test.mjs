@@ -38,6 +38,8 @@ test('CodeQL result gate rejects findings/malformed output and never prints diag
   assert.equal(reviewed.status, 0);
   assert.match(reviewed.stdout, /Reviewed checksum-gated release archive flow: 1/);
   assert.ok(!reviewed.stdout.includes('SYNTHETIC_PRIVATE_DIAGNOSTIC') && !reviewed.stderr.includes('SYNTHETIC_PRIVATE_DIAGNOSTIC'));
+  await writeFile(scannerFile, scanner.replace('https://github.com/gitleaks/gitleaks/releases/download/', 'https://github.com.attacker.invalid/gitleaks/gitleaks/releases/download/'));
+  assert.equal(run().status, 1, 'a release URL with an attacker-controlled host fails closed');
   await writeFile(scannerFile, scanner.replace(/if \(createHash\('sha256'\)[^\n]+\n/, ''));
   assert.equal(run().status, 1, 'the exact flow fails closed if the digest check is removed');
   await writeFile(file, '{}');
