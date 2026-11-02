@@ -22,7 +22,7 @@ test('CodeQL result gate rejects findings/malformed output and never prints diag
   const scanner = [
     "const release = '8.30.1';",
     "const platforms = { 'linux-x64': ['linux_x64.tar.gz', '" + 'a'.repeat(64) + "'] };",
-    "const url = 'https://github.com/gitleaks/gitleaks/releases/download/';",
+    "const releaseBase = new URL('https://github.com/gitleaks/gitleaks/releases/download/');",
     "if (createHash('sha256').update(bytes).digest('hex') !== platform[1]) throw new Error('Scanner checksum mismatch.');",
     'await writeFile(archive, bytes);',
   ].join('\n');

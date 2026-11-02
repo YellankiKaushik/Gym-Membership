@@ -15,12 +15,16 @@ const toolDir = resolve('.security-tools', `gitleaks-${release}`);
 const binary = join(toolDir, process.platform === 'win32' ? 'gitleaks.exe' : 'gitleaks');
 try { await access(binary); } catch {
   if (!process.argv.includes('--download')) throw new Error('Reviewed scanner not installed. Run npm run scan:secrets -- --download to download the checksum-pinned official release.');
-  const response = await fetch(`https://github.com/gitleaks/gitleaks/releases/download/v${release}/gitleaks_${release}_${platform[0]}`);
+  const releaseBase = new URL('https://github.com/gitleaks/gitleaks/releases/download/');
+  const downloadUrl = new URL(`v${release}/gitleaks_${release}_${platform[0]}`, releaseBase);
+  const response = await fetch(downloadUrl);
   if (!response.ok) throw new Error('Official scanner download failed.');
   const bytes = Buffer.from(await response.arrayBuffer());
   if (createHash('sha256').update(bytes).digest('hex') !== platform[1]) throw new Error('Scanner checksum mismatch.');
   await mkdir(toolDir, { recursive: true });
   const archive = join(toolDir, process.platform === 'win32' ? 'release.zip' : 'release.tar.gz');
+  // CodeQL cannot infer the exact pinned SHA-256 equality check above.
+  // codeql[js/http-to-file-access]
   await writeFile(archive, bytes);
   if (process.platform === 'win32') {
     // Paths are arguments passed through environment, never interpolated as shell code.

@@ -8,10 +8,17 @@ const scannerPath = 'scripts/scan-secrets.mjs';
 const scannerSource = await readFile(scannerPath, 'utf8').catch(() => '');
 const checksumGuard = scannerSource.indexOf("if (createHash('sha256').update(bytes).digest('hex') !== platform[1])");
 const archiveWrite = scannerSource.indexOf('await writeFile(archive, bytes)');
+const releaseUrl = scannerSource.match(/const releaseBase = new URL\('([^']+)'\)/)?.[1];
+let isPinnedReleaseUrl = false;
+try {
+  const parsedUrl = new URL(releaseUrl);
+  isPinnedReleaseUrl = parsedUrl.protocol === 'https:' && parsedUrl.hostname === 'github.com' &&
+    parsedUrl.pathname === '/gitleaks/gitleaks/releases/download/';
+} catch { /* absent or malformed release URL is not trusted */ }
 const hasPinnedArchiveChecksum = checksumGuard >= 0 && archiveWrite > checksumGuard &&
   /const release = '\d+\.\d+\.\d+'/.test(scannerSource) &&
   /\[[^\]]+, '[a-f0-9]{64}'\]/.test(scannerSource) &&
-  scannerSource.includes('https://github.com/gitleaks/gitleaks/releases/download/');
+  isPinnedReleaseUrl;
 let reviewedArchiveFlow = 0;
 for (const file of files) {
   let report;
