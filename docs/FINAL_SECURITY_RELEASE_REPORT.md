@@ -6,7 +6,7 @@
 
 ## Executive result
 
-- **Prototype release:** **NO-GO.** The security branch and draft pull request are published and automated checks pass, but the existing Apps Script deployment/version, actual controlled head test, rollback state, and `/exec` behavior were not verified with authenticated Google access. The PR is not merged and no production deployment was made. Vercel Preview remains intentionally fail-closed because it lacks isolated synthetic-backend configuration.
+- **Prototype release:** **NO-GO pending backend validation.** The security branch and draft pull request are published and automated checks pass, but the existing Apps Script deployment/version, actual controlled head test, rollback state, and `/exec` behavior were not verified with authenticated Google access. The PR is not merged and no production deployment was made. The owner authorized a temporary fake-data Preview exception: rely on local/browser tests, production-build checks, GitHub CI, an actual Apps Script head test, and a controlled production smoke test without claiming Preview isolation. Preview still fails closed; no unsafe Preview configuration was introduced.
 - **Commercial readiness:** **NO-GO.** Application-level owner MFA, secure member-lookup migration, isolated customer projects/data, independent backups with demonstrated restore, member history/recovery, effective abuse controls, protected security-event logging, and incident-response validation remain prerequisites.
 - The repository contains the code for the reviewed security candidate. Tests and scans are evidence about that code, not proof of security or live account configuration.
 
@@ -16,13 +16,13 @@
 | --- | --- |
 | Initial `main` | `cf9af5c789696b6306ffad9c347a62dec43cc30a` |
 | `main` at final review | `cf9af5c789696b6306ffad9c347a62dec43cc30a` (unchanged) |
-| Security implementation candidate with completed checks | `cc2eb449233fe4020452790824a5d8a7a36e2564` |
+| Security implementation candidate with completed checks | `53b294452439bbbd9904b0d25972729c826bbaa7` |
 | Pull request | [#6 — security/hardening-phase2 into main](https://github.com/YellankiKaushik/Gym-Membership/pull/6), open and draft |
 | PR merge commit | None; not merged |
-| Main protection | Not verified/enforced. Rulesets API returned `[]`; branch-protection read returned 403 (`Resource not accessible by integration`). |
+| Main protection | Verified active ruleset `main-required-checks` (ID `26360575`); main reports protected. Requires PR, resolved review threads, and `verify`, `runtime-dependencies`, `codeql`, `secrets`; blocks force pushes and deletion; requires no second reviewer. Repository-admin role has a recovery bypass. |
 | Existing remote branches | `main`, `gh-pages`, and `feature/fitzone-promotional-video` remain; `security/hardening-phase2` was added and pushed normally. No force push or main write occurred. |
 
-The security branch includes history-preserving integration commit `12448a59b61a669279a41d95c33da57be4911c78` and later CodeQL/documentation-gate fixes. PR #6 is the reviewed release vehicle; no merge commit exists because mandatory release gates remain open.
+The security branch includes history-preserving integration commit `12448a59b61a669279a41d95c33da57be4911c78` and later CodeQL/documentation-gate fixes. PR #6 remains draft. Both CodeQL review threads have replies; the checksum-gated archive-flow thread was resolved with its narrow false-positive rationale, and the URL-origin finding was already marked resolved/outdated after the strict URL fix. No PR-to-main merge commit exists because the mandatory Apps Script gate remains open.
 
 ## Code changes
 
@@ -56,25 +56,25 @@ No production app authentication mode, backend deployment, email setting, deploy
 | `npm run build` | Pass; production Vite build generated. |
 | `npm run test:browser` | Pass; 26/26 browser tests, including responsive layouts and owner/member flows. |
 | `npm run scan:secrets` | Pass; Gitleaks 8.30.1 reported zero findings in reachable local history and the tracked working tree. |
-| `npm audit` | **Not clean:** 12 moderate package entries, all from one advisory `GHSA-g3hv-75wg-m249` (`minimatch <11.0.1`, globparts denial of service) in the development ESLint/TypeScript-ESLint toolchain. No high or critical findings remain. npm proposes a forced breaking downgrade for its remaining fix; it was not applied. |
+| `npm audit` | **Not clean:** 12 moderate package entries, all from one advisory `GHSA-g3hv-75wg-m249` (`minimatch <11.0.1`, globparts denial of service) in the development ESLint/TypeScript-ESLint toolchain. No high or critical findings remain. npm proposes a forced breaking downgrade for its remaining fix; it was not applied. **Time-limited prototype-only disposition expires 2 December 2026:** no customer/production data; reassess and remediate compatibly or stop using the affected development tooling by expiry. |
 | `npm audit --omit=dev` | Pass; zero runtime dependency vulnerabilities. |
 | Promo `npm test` | Pass; 27/27 tests. |
 | Promo `npm run typecheck` | Pass. |
 | Promo `npm run check:compositions` | Pass; both compositions were checked for metadata, layout, frame rendering, and a short H.264 sample. One initial attempt collided with the exclusive verification lock; rerun after verification, with required local browser permission, passed. |
 | Promo `npm run verify -- --published-only` | Pass; all three published MP4s fully decoded and met metadata/audio checks: hero and clean 1920×1080/60s, vertical 1080×1920/30s. |
-| `node --test tests/security-codeql-gate.test.mjs` | Pass; regression test verifies malformed findings fail closed, the exact checksum-gated release flow is narrowly recognized, and removing the checksum check fails. |
+| `node --test tests/security-codeql-gate.test.mjs` | Pass; regression test verifies malformed findings fail closed, the exact checksum-gated release flow is narrowly recognized, removing the checksum check fails, and an attacker-controlled URL host fails closed. |
 | `git diff --check` | Pass. |
 
 The previously approved MP4 hashes remain hero/clean `f8e8d0b65a6ce5e3ccdc41ae1f22b09bbf6d7becfbe32380f00586fb4509937b` and vertical `98c8cc3310474dd787c5aec458bb926e16e70bae47df68a15781f97c6856def5`. No MP4 bytes were changed in this task.
 
 ### GitHub Actions and CodeQL
 
-For candidate `cc2eb449233fe4020452790824a5d8a7a36e2564`, GitHub scheduled and completed new runs (the result is not inferred from historical runs):
+For candidate `53b294452439bbbd9904b0d25972729c826bbaa7`, GitHub scheduled and completed new runs (the result is not inferred from historical runs):
 
-- [Application verify run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41422373192) — pass.
-- [Security checks, PR run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41422373203) — `runtime-dependencies`, `secrets`, and `codeql` pass.
-- [Security checks, push run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41422365172) — `runtime-dependencies`, `secrets`, and `codeql` pass.
-- [Latest CodeQL result](https://github.com/YellankiKaushik/Gym-Membership/runs/125201277884) — successful check; GitHub still annotates one medium `Network data written to file` flow at the pinned Gitleaks archive write. The scanner downloads a fixed official Gitleaks 8.30.1 release, verifies its hard-coded platform SHA-256 before writing/extracting, and refuses a mismatch. The repository SARIF gate permits only that exact sink when its preceding checksum guard and pinned release metadata are present; all other actionable findings fail the gate. This dataflow is treated as reviewed, not erased or described as absent.
+- [Application verify run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41433586619) — pass.
+- [Security checks, PR run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41433586607) — `runtime-dependencies`, `secrets`, and `codeql` pass.
+- [Security checks, push run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41433580338) — `runtime-dependencies`, `secrets`, and `codeql` pass.
+- [Latest CodeQL result](https://github.com/YellankiKaushik/Gym-Membership/runs/125238300895) — successful check, no new alerts. Alert 3 for the medium `Network data written to file` flow was dismissed with a documented false-positive reason: the URL is fixed to the official Gitleaks 8.30.1 release and the complete archive must match a hard-coded platform SHA-256 before write/extract. The SARIF gate permits only this exact sink with that guard/version/digest; regression tests fail if the guard is removed. This disposition is specific to the verified artifact flow and does not suppress other findings.
 
 CodeQL’s coverage gate verified the intended TypeScript/JavaScript source set (21/21 TypeScript files and 13/13 JavaScript files) and exact archived Apps Script source mirrors for `backend/Auth.gs` and `backend/Code.gs`. The SARIF/extraction gate completed successfully. This evidence demonstrates coverage of the configured scope, not a guarantee that all vulnerabilities are found.
 
@@ -97,7 +97,7 @@ Official references: [version-tagged Remotion v4.0.538 license](https://github.c
 
 - Current production remains on commit `cf9af5c789696b6306ffad9c347a62dec43cc30a`; its existing deployment was reported READY and the public app returned HTTP 200 in a read-only check. No production deployment was made for this PR.
 - The production response did not include the candidate `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, Content Security Policy, or Permissions Policy headers. The candidate headers are therefore not live on the checked deployment.
-- The candidate Preview failed at the explicit Vite configuration guard because there is no distinct synthetic staging endpoint and verified production-endpoint fingerprint. This is the intended fail-closed behavior, not an accepted preview. No endpoint, Vercel environment variable, or attestation was changed to bypass it.
+- The candidate Preview failed at the explicit Vite configuration guard because there is no distinct synthetic staging endpoint and verified production-endpoint fingerprint. The owner approved a temporary exception for this fake-data-only prototype that does not claim Preview isolation and instead requires local/CI checks, actual Apps Script head/deployment verification, and controlled production smoke checks. This exception does not authorize real customer data. No endpoint, Vercel environment variable, or attestation was changed to bypass the guard.
 - The existing fake-data endpoint and production build compatibility were not authenticated end-to-end. Keep Preview unapproved and do not deploy the candidate to production before a safe isolated preview and Apps Script gates are verified.
 
 ## Recovery and data integrity
@@ -112,4 +112,4 @@ Do not introduce real gym/member data until the owner completes and evidences: a
 
 ## Final decision
 
-**RELEASE BLOCKED —** (1) authenticated Apps Script head test, deployed version/rollback capture, current endpoint verification and fake-data smoke tests are unavailable; (2) Vercel Preview is not accepted because the project lacks an isolated synthetic backend; and (3) main has no verified required-check branch rules. Main remains unchanged. The draft PR may be reviewed, but must not be merged or deployed until the first two mandatory gates pass and release controls are established.
+**RELEASE BLOCKED —** authenticated Apps Script access is unavailable, so the existing deployment/version and rollback target, controlled `/dev` head test, current `/exec` identity, safe Script Properties, and fictional-data smoke checks remain unverified. Main remains unchanged. The main ruleset is active, and the owner-approved temporary Preview exception is documented for fake-data-only use; neither substitutes for the mandatory backend gate. Keep PR #6 draft and do not merge/deploy until an authorized owner completes the backend procedure and the candidate is smoke-tested against the preserved deployment.
