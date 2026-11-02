@@ -1,5 +1,13 @@
 # Expiry reminders
 
+> Security history mode remains off until independent backup/restore verification
+> and migration approval. If explicitly enabled later, unresolved pending history,
+> unavailable history storage or a stale backup attestation requires owner review
+> before normal sending continues. The existing trigger wrapper, email-disable
+> switch, term journal and pure synthetic preview are preserved. Restoration keeps
+> email off until Sent-mail/journal reconciliation. See the
+> [security recovery checklist](SECURITY_PRODUCTION_CHECKLIST.md#5-gated-history-reversible-archival-and-recovery).
+
 The dashboard's Expiring Soon window is **0–7 Asia/Kolkata calendar days**,
 inclusive. These memberships also count as Active. Expired members are separate.
 Lists sort by expiry ascending. Memberships remain active on their inclusive end date.

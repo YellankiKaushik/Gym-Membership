@@ -2,6 +2,13 @@
 
 # Owner authentication setup
 
+> The security branch includes a tested server-verification interface for managed
+> MFA/passkeys and optional fresh-action confirmation. **It is not activated.**
+> Keep the working password login until the chosen provider's enrollment,
+> SDK/UI, recovery and actual Google staging path are validated. Follow the
+> [security activation checklist](../docs/SECURITY_PRODUCTION_CHECKLIST.md#6-phishing-resistant-managed-owner-identity).
+> Never put provider keys or owner secrets in frontend configuration.
+
 This change preserves React, Apps Script, Sheets, and one installation per gym.
 The uploaded `Code.gs` is the baseline, not proof of what production currently runs.
 

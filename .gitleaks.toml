@@ -1,0 +1,3 @@
+title = "FitZone: upstream secret rules, no broad test or backend exclusions"
+[extend]
+useDefault = true

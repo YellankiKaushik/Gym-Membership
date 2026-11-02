@@ -1,6 +1,6 @@
 # Remotion dependency license obligations
 
-Reviewed on 24 October 2026 for the exact **4.0.538** dependency graph in `package-lock.json`. This document records the eight custom-license findings; it does not grant a license, establish the owner's eligibility, or replace upstream terms.
+Reviewed on 2 November 2026 for the exact **4.0.538** dependency graph in `package-lock.json`. This document records the eight custom-license findings; it does not grant a license, establish the owner's eligibility, or replace upstream terms.
 
 ## Exact packages and evidence
 
@@ -27,8 +27,8 @@ A commercial gym advertisement cannot establish eligibility through the evaluati
 
 ## Current guidance and future use
 
-The [current official FAQ](https://www.remotion.dev/docs/license/faq) uses total organization/team headcount and explains collaboration/agency aggregation; it distinguishes creating an MP4 for a client from transferring or jointly operating its editable project. Check those definitions for the actual parties involved. The dependency license text above is pinned to 4.0.538; the current web documentation can change and must not silently substitute for it. Its versioned license already announces a later 5.0 change.
+The [current official Terms (v5.0)](https://www.remotion.dev/docs/terms), checked 2 November 2026, allow free use by an individual or an organization/team of up to three people, and state that eligible users may make commercial media. They describe a Company License requirement for users outside Free License eligibility, with involved-party headcount and ownership/control/use of the same project considered. A client receiving only a finished MP4 is not thereby a Remotion user; a client that owns, controls, or operates the editable project is treated differently. These current terms are guidance for current use and do not replace the exact 4.0.538 license shipped by this lockfile.
 
-Current [Company License pricing and options](https://www.remotion.dev/docs/license/pricing) distinguish Creators and Automators. This project's render script calls `renderMedia()` and `renderStill()`; the FAQ explicitly includes those APIs in its automation definition. An owner who requires a paid license should confirm the applicable option and coverage with Remotion. Free-eligible users can also automate. Installing packages or publishing the editable project does not establish paid entitlement. Preserve upstream notices and recheck the shipped license when upgrading dependencies.
+Current [Company License pricing](https://www.remotion.dev/docs/license/pricing) and [FAQ](https://www.remotion.dev/docs/license/faq) distinguish low-volume creation from automation. The FAQ explicitly lists `renderMedia()` and `renderStill()` as automation APIs and says eligible Free License users may also automate without paying per render. If the project owner is a Company License User, this project's scripted calls to those APIs fit Remotion's Automators definition; the owner must confirm the correct option and accurately report usage. No headcount, user classification, entitlement, or license purchase was verified here. Installing packages or publishing the editable project does not establish entitlement. Preserve upstream notices and recheck terms when upgrading dependencies.
 
 This assessment concerns Remotion usage. Original compositions, synthetic captures, generated score and Lucide attribution have separate provenance in [assets/ASSET_PROVENANCE.md](assets/ASSET_PROVENANCE.md); that document does not relicense Remotion's dependencies.

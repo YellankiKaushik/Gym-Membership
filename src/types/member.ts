@@ -62,9 +62,15 @@ export interface OwnerSession {
   sessionToken: string;
   expiresAt: number;
   apiUrl: string;
+  securityPolicy?: OwnerSecurityPolicy;
+}
+
+export interface OwnerSecurityPolicy {
+  authMode: 'legacy' | 'managed'; stepUpRequired: boolean; historyEnabled: boolean; lookupMode: 'legacy' | 'capability';
 }
 
 export interface LoginResponse extends ApiResponse {
   sessionToken?: string;
   expiresAt?: number;
+  securityPolicy?: OwnerSecurityPolicy;
 }

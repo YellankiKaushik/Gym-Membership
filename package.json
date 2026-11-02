@@ -10,15 +10,18 @@
     "test:bundle": "node scripts/test-apps-script-bundle.mjs",
     "test:browser": "node --test --test-concurrency=1 tests/browser/*.test.mjs",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
-    "lint": "eslint src vite.config.ts",
+    "lint": "eslint src server api vite.config.ts",
     "dev": "vite",
     "prebuild": "npm run generate:backend",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "gh-pages -d dist",
-    "check:docs": "node scripts/check-docs.mjs"
+    "check:docs": "node scripts/check-docs.mjs",
+    "check:security": "node scripts/check-security.mjs",
+    "scan:secrets": "node scripts/scan-secrets.mjs"
   },
   "dependencies": {
+    "jose": "6.2.12",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
