@@ -1,12 +1,12 @@
 # FitZone Security Release Report
 
-**Reviewed:** 2 November 2026 (Asia/Kolkata)  
+**Reviewed:** 3 November 2026 (Asia/Kolkata)
 **Decision:** **RELEASE BLOCKED — Google Apps Script validation and release gates are incomplete.**  
 **Scope:** Fake-data prototype only. This report does not certify the product as secure for real member data.
 
 ## Executive result
 
-- **Prototype release:** **NO-GO pending backend validation.** The security branch and draft pull request are published and automated checks pass, but the existing Apps Script deployment/version, actual controlled head test, rollback state, and `/exec` behavior were not verified with authenticated Google access. The PR is not merged and no production deployment was made. The owner authorized a temporary fake-data Preview exception: rely on local/browser tests, production-build checks, GitHub CI, an actual Apps Script head test, and a controlled production smoke test without claiming Preview isolation. Preview still fails closed; no unsafe Preview configuration was introduced.
+- **Prototype release:** **NO-GO pending backend validation.** Google access is now authenticated and the existing project, version 3 deployment, original source/manifest and fictional Sheet checkpoint have been verified and privately backed up. The owner directed that the Apps Script API remain off. The official `clasp push` was rejected before any source write because that API is disabled, so the editor remains unchanged, the actual head test was not run, and no new public version or `/exec` smoke test exists. PR #6 remains unmerged and Vercel Production was not updated. The temporary fake-data Preview exception remains in force without claiming Preview isolation; it does not waive backend verification.
 - **Commercial readiness:** **NO-GO.** Application-level owner MFA, secure member-lookup migration, isolated customer projects/data, independent backups with demonstrated restore, member history/recovery, effective abuse controls, protected security-event logging, and incident-response validation remain prerequisites.
 - The repository contains the code for the reviewed security candidate. Tests and scans are evidence about that code, not proof of security or live account configuration.
 
@@ -15,12 +15,11 @@
 | Item | Result |
 | --- | --- |
 | Initial `main` | `cf9af5c789696b6306ffad9c347a62dec43cc30a` |
-| `main` at final review | `cf9af5c789696b6306ffad9c347a62dec43cc30a` (unchanged) |
-| Security implementation candidate with completed checks | `53b294452439bbbd9904b0d25972729c826bbaa7` |
-| Final branch head | `f140786cc0403895b77b8f35c790453d8515849f` (report-only commit after the tested code candidate) |
-| Pull request | [#6 — security/hardening-phase2 into main](https://github.com/YellankiKaushik/Gym-Membership/pull/6), open and draft |
+| `main` at final review | `cf9af5c789696b6306ffad9c347a62dec43cc30a` (unchanged; last refreshed with `git fetch`) |
+| Security branch / PR candidate | `97243cca0637379053c07765dd5c4e8358c413cc` (remote branch refreshed; no code changes in this turn) |
+| Pull request | [#6 — security/hardening-phase2 into main](https://github.com/YellankiKaushik/Gym-Membership/pull/6), last confirmed open and draft; direct GitHub page/API was inaccessible in this session |
 | PR merge commit | None; not merged |
-| Main protection | Verified active ruleset `main-required-checks` (ID `26360575`); main reports protected. Requires PR, resolved review threads, and `verify`, `runtime-dependencies`, `codeql`, `secrets`; blocks force pushes and deletion; requires no second reviewer. Repository-admin role has a recovery bypass. |
+| Main protection | Last verified active ruleset `main-required-checks` (ID `26360575`); it requires PR, resolved review threads, and `verify`, `runtime-dependencies`, `codeql`, `secrets`; blocks force pushes and deletion; requires no second reviewer. Repository-admin role has a recovery bypass. Not rechecked this turn. |
 | Existing remote branches | `main`, `gh-pages`, and `feature/fitzone-promotional-video` remain; `security/hardening-phase2` was added and pushed normally. No force push or main write occurred. |
 
 The security branch includes history-preserving integration commit `12448a59b61a669279a41d95c33da57be4911c78` and later CodeQL/documentation-gate fixes. PR #6 remains draft. Both CodeQL review threads have replies; the checksum-gated archive-flow thread was resolved with its narrow false-positive rationale, and the URL-origin finding was already marked resolved/outdated after the strict URL fix. No PR-to-main merge commit exists because the mandatory Apps Script gate remains open.
@@ -38,7 +37,7 @@ The candidate contains the security hardening and the compatible merge from main
 - Root `package-lock.json` received compatible audit resolution for the high-severity Zod advisory; no forced breaking downgrade was used. Remotion lockfiles and pinned versions were not changed. `promo-video/LICENSE_OBLIGATIONS.md` was updated with the current terms review.
 - This report: `docs/FINAL_SECURITY_RELEASE_REPORT.md`.
 
-No production app authentication mode, backend deployment, email setting, deployment environment setting, or advanced migration flag was activated. `OWNER_AUTH_MODE=managed`, `MEMBER_LOOKUP_MODE=capability`, and `MEMBER_HISTORY_ENABLED=true` remain inactive. The approved promo-video source and all published MP4 files were preserved; this remediation did not change their visual inputs or rerender them.
+No production app authentication mode, backend code, public deployment, Vercel setting, or advanced migration flag was activated. `OWNER_AUTH_MODE=managed`, `MEMBER_LOOKUP_MODE=capability`, and `MEMBER_HISTORY_ENABLED=true` remain inactive. The authorized safety setting `EXPIRY_EMAIL_ENABLED` is now exactly `false`; the existing notification trigger and journal were left intact. The approved promo-video source and all published MP4 files were preserved; this turn did not change their visual inputs or rerender them.
 
 ## Automated testing and CI
 
@@ -57,12 +56,12 @@ No production app authentication mode, backend deployment, email setting, deploy
 | `npm run build` | Pass; production Vite build generated. |
 | `npm run test:browser` | Pass; 26/26 browser tests, including responsive layouts and owner/member flows. |
 | `npm run scan:secrets` | Pass; Gitleaks 8.30.1 reported zero findings in reachable local history and the tracked working tree. |
-| `npm audit` | **Not clean:** 12 moderate package entries, all from one advisory `GHSA-g3hv-75wg-m249` (`minimatch <11.0.1`, globparts denial of service) in the development ESLint/TypeScript-ESLint toolchain. No high or critical findings remain. npm proposes a forced breaking downgrade for its remaining fix; it was not applied. **Time-limited prototype-only disposition expires 2 December 2026:** no customer/production data; reassess and remediate compatibly or stop using the affected development tooling by expiry. |
-| `npm audit --omit=dev` | Pass; zero runtime dependency vulnerabilities. |
+| `npm audit` | **Not clean:** 12 moderate package entries, all from advisory `GHSA-g3hv-75wg-m249` (`minimatch <11.0.1`, globparts denial of service) in the development ESLint/TypeScript-ESLint toolchain. The audit was rerun with registry access; npm proposes a forced breaking dependency change and it was not applied. **Time-limited prototype-only disposition expires 2 December 2026:** no customer/production data; reassess and remediate compatibly or stop using the affected development tooling by expiry. |
+| `npm audit --omit=dev` | Pass; zero runtime dependency vulnerabilities (rerun with registry access). |
 | Promo `npm test` | Pass; 27/27 tests. |
 | Promo `npm run typecheck` | Pass. |
 | Promo `npm run check:compositions` | Pass; both compositions were checked for metadata, layout, frame rendering, and a short H.264 sample. One initial attempt collided with the exclusive verification lock; rerun after verification, with required local browser permission, passed. |
-| Promo `npm run verify -- --published-only` | Pass; all three published MP4s fully decoded and met metadata/audio checks: hero and clean 1920×1080/60s, vertical 1080×1920/30s. |
+| Promo `npm run verify` | Pass; all four exports fully decoded: hero and clean 1920×1080/60s, silent 1920×1080/60s, vertical 1080×1920/30s. The verification reports were restored after confirming the outputs so no generated report diff remains. |
 | `node --test tests/security-codeql-gate.test.mjs` | Pass; regression test verifies malformed findings fail closed, the exact checksum-gated release flow is narrowly recognized, removing the checksum check fails, and an attacker-controlled URL host fails closed. |
 | `git diff --check` | Pass. |
 
@@ -70,16 +69,9 @@ The previously approved MP4 hashes remain hero/clean `f8e8d0b65a6ce5e3ccdc41ae1f
 
 ### GitHub Actions and CodeQL
 
-For final branch head `f140786cc0403895b77b8f35c790453d8515849f`, GitHub scheduled and completed new runs (the result is not inferred from historical runs):
+The previous GitHub status audit checked candidate `97243cca0637379053c07765dd5c4e8358c413cc`: application verify, runtime dependencies, secrets, and CodeQL were all reported passing, and the CodeQL result reported no new alerts ([application/security workflow runs](https://github.com/YellankiKaushik/Gym-Membership/actions), [CodeQL runs](https://github.com/YellankiKaushik/Gym-Membership/security/code-scanning)). Those results have not been refreshed in this turn because the GitHub connector returned 404 and the browser session was signed out. No new source commit was made; only this report is being updated. The external Vercel Preview status was previously **failure** because the explicit deployment-config guard rejects the shared production endpoint; this is not counted as a passing Preview. The owner-approved fake-data exception permits proceeding without claiming Preview isolation, but it does not waive the Apps Script head/deployment checks or controlled production smoke test.
 
-- [Application verify run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41434194641) — pass.
-- [Security checks, PR run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41434194625) — `runtime-dependencies`, `secrets`, and `codeql` pass.
-- [Security checks, push run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41434186757) — `runtime-dependencies`, `secrets`, and `codeql` pass.
-- [Latest CodeQL result](https://github.com/YellankiKaushik/Gym-Membership/runs/125240302713) — successful check, no new alerts. Alert 3 for the medium `Network data written to file` flow was dismissed with a documented false-positive reason: the URL is fixed to the official Gitleaks 8.30.1 release and the complete archive must match a hard-coded platform SHA-256 before write/extract. The SARIF gate permits only this exact sink with that guard/version/digest; regression tests fail if the guard is removed. This disposition is specific to the verified artifact flow and does not suppress other findings.
-
-The final head's required application and security CI checks all pass. The external Vercel Preview status is **failure** because the explicit deployment-config guard rejects the shared production endpoint; this is not counted as a passing Preview. The owner-approved fake-data exception permits proceeding without claiming Preview isolation, but it does not waive the Apps Script head/deployment checks or controlled production smoke test.
-
-CodeQL’s coverage gate verified the intended TypeScript/JavaScript source set (21/21 TypeScript files and 13/13 JavaScript files) and exact archived Apps Script source mirrors for `backend/Auth.gs` and `backend/Code.gs`. The SARIF/extraction gate completed successfully. This evidence demonstrates coverage of the configured scope, not a guarantee that all vulnerabilities are found.
+The previously completed CodeQL coverage gate verified the intended TypeScript/JavaScript source set (21/21 TypeScript files and 13/13 JavaScript files) and exact archived Apps Script source mirrors for `backend/Auth.gs` and `backend/Code.gs`. The SARIF/extraction gate completed successfully. This evidence demonstrates coverage of the configured scope, not a guarantee that all vulnerabilities are found.
 
 ## Remotion license obligations
 
@@ -91,23 +83,25 @@ Official references: [version-tagged Remotion v4.0.538 license](https://github.c
 
 ## Google Apps Script
 
-- Authenticated Google Apps Script access was unavailable in this session. The existing project, deployed version, live manifest, editor identity, existing `/exec` URL, and rollback version could not be read or captured. No Google code was deployed and no Sheet was accessed or mutated.
-- Therefore the controlled existing-project `/dev` head test, owner-authenticated operations, fictional-row cleanup, old-row integrity check, and existing `/exec` smoke tests were **not run**. A local mock is not counted as an Apps Script execution.
-- The maintained generated installer passed parity checks. Its SHA-256 is `5CBCC8B84B9621B61BD45081D9E02C7002AE6D8E134570A9578D3AE9440ED048`.
-- Existing frontend endpoint configuration was not changed. The current live endpoint identity, `EXPIRY_EMAIL_ENABLED=false`, and migrations-off state were not independently verified against Google properties. Do not merge/deploy until an authorized owner completes the documented bounded procedure in [`SECURITY_PROTOTYPE_ROLLOUT.md`](SECURITY_PROTOTYPE_ROLLOUT.md), records deployment/version/rollback evidence, confirms the existing URL and safe flags, and verifies marked fictional rows are cleaned up.
+- The authenticated Apps Script editor and clasp both identified the existing project by its exact project ID. The existing public Web app is still deployment version 3 (`FINAL`); a separate `@HEAD` deployment already exists. The public deployment ID and `/exec` URL were preserved. No new project or endpoint was created.
+- Private recovery artifacts now include the pre-edit project clone, a separate clone of deployed version 3 (including `appsscript.json`), and the Sheet copy `FitZone TEST Recovery 2026-11-03`. The Sheet copy is saved under the same account with “Share with same people” unchecked. Private source hashes, project/deployment identities, prior deployment settings, installer SHA and release SHA are recorded in `private-recovery/release-checkpoint-2026-11-03.txt`, which is untracked and must not be published.
+- Script Properties were inspected without exposing their values in this report. `EXPIRY_EMAIL_ENABLED` was changed to the exact string `false` and independently read back after a settings reload. The existing high-water mark (6), notification journal, and other properties were left untouched. A pre-existing time-based `runDailyExpiryNotifications` trigger remains. The current source short-circuits sending unless the property is exactly `true`, so the disabled value blocks this trigger and the test path.
+- A temporary `FITZONE_PROTOTYPE_HEAD_TEST=fictional-data-only` property was added, then deleted and its absence verified. No test helper was installed and no actual Apps Script head test was run.
+- The Apps Script API setting is **OFF**, per the owner’s explicit direction. Official `clasp push` returned “User has not enabled the Apps Script API” before writing any project files. The editor still contains its original `Code.gs`, `Auth.gs`, `Bcrypt.gs`; version 3 remains public. No new code version was created or deployment updated.
+- The maintained source-to-installer check passes. Generated installer SHA-256: `5CBCC8B84B9621B61BD45081D9E02C7002AE6D8E134570A9578D3AE9440ED048`. No Sheet rows were mutated. `/dev` head checks, cleanup assertions, authenticated live operations, and existing `/exec` smoke tests are **NOT RUN**. Do not merge or deploy until the owner changes the API setting or uses another explicitly authorized official upload method, then the candidate head test and production smoke pass.
 
 ## Vercel
 
-- Current production remains on commit `cf9af5c789696b6306ffad9c347a62dec43cc30a`; its existing deployment was reported READY and the public app returned HTTP 200 in a read-only check. No production deployment was made for this PR.
+- The last reported Production deployment was on commit `cf9af5c789696b6306ffad9c347a62dec43cc30a`; that deployment was reported READY and the public app returned HTTP 200 in the earlier read-only check. Production was not rechecked this turn, and no deployment was made for this PR.
 - The production response did not include the candidate `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, Content Security Policy, or Permissions Policy headers. The candidate headers are therefore not live on the checked deployment.
 - The candidate Preview failed at the explicit Vite configuration guard because there is no distinct synthetic staging endpoint and verified production-endpoint fingerprint. The owner approved a temporary exception for this fake-data-only prototype that does not claim Preview isolation and instead relies on local/browser tests, production-build checks, GitHub CI, actual Apps Script head/deployment verification, and controlled production smoke checks. This exception does not authorize real customer data. No endpoint, Vercel environment variable, or attestation was changed to bypass the guard.
 - The existing fake-data endpoint and production build compatibility were not authenticated end-to-end. Preview isolation is not asserted or a release prerequisite under the approved exception. The Apps Script gates and controlled production smoke test remain mandatory before production deployment.
 
 ## Recovery and data integrity
 
-- No live Google data or production deployment was mutated; no restore or rollback was performed.
-- The currently live Vercel commit `cf9af5c789696b6306ffad9c347a62dec43cc30a` is identifiable as the frontend rollback target. The existing Apps Script deployment/version rollback target was not captured, and no actual restore was demonstrated.
-- The candidate’s local protected backup/recovery tooling has automated tests, but that does not substitute for an independent backup or demonstrated restoration of the real Sheet. Real Sheet integrity remains unverified because Google was not accessed.
+- The original Sheet was not mutated. A private same-account fictional-data checkpoint, pre-edit source/manifest copy, and exact version-3 source/manifest rollback copy were verified. The only live configuration change was `EXPIRY_EMAIL_ENABLED=false`; the temporary test gate was removed. No code rollback was needed because the Apps Script API rejected the push before a write.
+- The currently reported Vercel commit `cf9af5c789696b6306ffad9c347a62dec43cc30a` is identifiable as the frontend rollback target; production was not rechecked after this session began. The existing Apps Script rollback target is public deployment version 3 and its exact files are privately cloned; no restore was needed or demonstrated.
+- The local protected backup/recovery tooling has automated tests. The real Sheet has a same-account private checkpoint copy, but no restore drill was performed. The original Sheet's rows were not modified.
 
 ## Commercial readiness and follow-up
 
@@ -115,4 +109,4 @@ Do not introduce real gym/member data until the owner completes and evidences: a
 
 ## Final decision
 
-**RELEASE BLOCKED —** authenticated Apps Script access is unavailable, so the existing deployment/version and rollback target, controlled `/dev` head test, current `/exec` identity, safe Script Properties, and fictional-data smoke checks remain unverified. Main remains unchanged. The main ruleset is active, and the owner-approved temporary Preview exception is documented for fake-data-only use; neither substitutes for the mandatory backend gate. Keep PR #6 draft and do not merge/deploy until an authorized owner completes the backend procedure and the candidate is smoke-tested against the preserved deployment.
+**RELEASE BLOCKED — Apps Script API is OFF by owner instruction, so clasp cannot install the reviewed source.** The account, project ID, version-3 public deployment, existing deployment ID, and private rollback copies were verified; email is disabled, the test flag is removed, and no Sheet rows were changed. The actual head test and public `/exec` integration smoke test were not run, so no new backend version was published. Keep PR #6 unmerged and do not update Vercel Production until the verified editor candidate passes those tests. The main ruleset and fake-data Preview exception do not substitute for the Apps Script gate.
