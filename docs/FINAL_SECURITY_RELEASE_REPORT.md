@@ -17,6 +17,7 @@
 | Initial `main` | `cf9af5c789696b6306ffad9c347a62dec43cc30a` |
 | `main` at final review | `cf9af5c789696b6306ffad9c347a62dec43cc30a` (unchanged) |
 | Security implementation candidate with completed checks | `53b294452439bbbd9904b0d25972729c826bbaa7` |
+| Final branch head | `f140786cc0403895b77b8f35c790453d8515849f` (report-only commit after the tested code candidate) |
 | Pull request | [#6 — security/hardening-phase2 into main](https://github.com/YellankiKaushik/Gym-Membership/pull/6), open and draft |
 | PR merge commit | None; not merged |
 | Main protection | Verified active ruleset `main-required-checks` (ID `26360575`); main reports protected. Requires PR, resolved review threads, and `verify`, `runtime-dependencies`, `codeql`, `secrets`; blocks force pushes and deletion; requires no second reviewer. Repository-admin role has a recovery bypass. |
@@ -46,7 +47,7 @@ No production app authentication mode, backend deployment, email setting, deploy
 | Command/check | Result |
 | --- | --- |
 | `npm ci` | Pass; installed from the lockfile. |
-| `npm run check:docs` | Pass; 28 Markdown files and 185 local links/anchors. |
+| `npm run check:docs` | Pass; 29 Markdown files and 187 local links/anchors. |
 | `npm run check:backend` | Pass; generated installer is up to date. |
 | `npm run check:security` | Pass; targeted guard parsed 20 application modules and backend syntax/globals. This is not a full SAST scan. |
 | `npm test` | Pass; 206 source tests and 206 generated Apps Script bundle tests (412 executions). |
@@ -69,12 +70,14 @@ The previously approved MP4 hashes remain hero/clean `f8e8d0b65a6ce5e3ccdc41ae1f
 
 ### GitHub Actions and CodeQL
 
-For candidate `53b294452439bbbd9904b0d25972729c826bbaa7`, GitHub scheduled and completed new runs (the result is not inferred from historical runs):
+For final branch head `f140786cc0403895b77b8f35c790453d8515849f`, GitHub scheduled and completed new runs (the result is not inferred from historical runs):
 
-- [Application verify run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41433586619) — pass.
-- [Security checks, PR run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41433586607) — `runtime-dependencies`, `secrets`, and `codeql` pass.
-- [Security checks, push run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41433580338) — `runtime-dependencies`, `secrets`, and `codeql` pass.
-- [Latest CodeQL result](https://github.com/YellankiKaushik/Gym-Membership/runs/125238300895) — successful check, no new alerts. Alert 3 for the medium `Network data written to file` flow was dismissed with a documented false-positive reason: the URL is fixed to the official Gitleaks 8.30.1 release and the complete archive must match a hard-coded platform SHA-256 before write/extract. The SARIF gate permits only this exact sink with that guard/version/digest; regression tests fail if the guard is removed. This disposition is specific to the verified artifact flow and does not suppress other findings.
+- [Application verify run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41434194641) — pass.
+- [Security checks, PR run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41434194625) — `runtime-dependencies`, `secrets`, and `codeql` pass.
+- [Security checks, push run](https://github.com/YellankiKaushik/Gym-Membership/actions/runs/41434186757) — `runtime-dependencies`, `secrets`, and `codeql` pass.
+- [Latest CodeQL result](https://github.com/YellankiKaushik/Gym-Membership/runs/125240302713) — successful check, no new alerts. Alert 3 for the medium `Network data written to file` flow was dismissed with a documented false-positive reason: the URL is fixed to the official Gitleaks 8.30.1 release and the complete archive must match a hard-coded platform SHA-256 before write/extract. The SARIF gate permits only this exact sink with that guard/version/digest; regression tests fail if the guard is removed. This disposition is specific to the verified artifact flow and does not suppress other findings.
+
+The final head's required application and security CI checks all pass. The external Vercel Preview status is **failure** because the explicit deployment-config guard rejects the shared production endpoint; this is not counted as a passing Preview. The owner-approved fake-data exception permits proceeding without claiming Preview isolation, but it does not waive the Apps Script head/deployment checks or controlled production smoke test.
 
 CodeQL’s coverage gate verified the intended TypeScript/JavaScript source set (21/21 TypeScript files and 13/13 JavaScript files) and exact archived Apps Script source mirrors for `backend/Auth.gs` and `backend/Code.gs`. The SARIF/extraction gate completed successfully. This evidence demonstrates coverage of the configured scope, not a guarantee that all vulnerabilities are found.
 
@@ -97,8 +100,8 @@ Official references: [version-tagged Remotion v4.0.538 license](https://github.c
 
 - Current production remains on commit `cf9af5c789696b6306ffad9c347a62dec43cc30a`; its existing deployment was reported READY and the public app returned HTTP 200 in a read-only check. No production deployment was made for this PR.
 - The production response did not include the candidate `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, Content Security Policy, or Permissions Policy headers. The candidate headers are therefore not live on the checked deployment.
-- The candidate Preview failed at the explicit Vite configuration guard because there is no distinct synthetic staging endpoint and verified production-endpoint fingerprint. The owner approved a temporary exception for this fake-data-only prototype that does not claim Preview isolation and instead requires local/CI checks, actual Apps Script head/deployment verification, and controlled production smoke checks. This exception does not authorize real customer data. No endpoint, Vercel environment variable, or attestation was changed to bypass the guard.
-- The existing fake-data endpoint and production build compatibility were not authenticated end-to-end. Keep Preview unapproved and do not deploy the candidate to production before a safe isolated preview and Apps Script gates are verified.
+- The candidate Preview failed at the explicit Vite configuration guard because there is no distinct synthetic staging endpoint and verified production-endpoint fingerprint. The owner approved a temporary exception for this fake-data-only prototype that does not claim Preview isolation and instead relies on local/browser tests, production-build checks, GitHub CI, actual Apps Script head/deployment verification, and controlled production smoke checks. This exception does not authorize real customer data. No endpoint, Vercel environment variable, or attestation was changed to bypass the guard.
+- The existing fake-data endpoint and production build compatibility were not authenticated end-to-end. Preview isolation is not asserted or a release prerequisite under the approved exception. The Apps Script gates and controlled production smoke test remain mandatory before production deployment.
 
 ## Recovery and data integrity
 
